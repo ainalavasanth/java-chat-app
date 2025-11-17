@@ -1,0 +1,24 @@
+# Use a base image with Java 17
+FROM eclipse-temurin:17-jdk-jammy
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the Maven wrapper and project files
+COPY .mvn/ .mvn
+COPY mvnw pom.xml ./
+
+# Download dependencies (this is cached to speed up builds)
+RUN ./mvnw dependency:go-offline
+
+# Copy the rest of the source code
+COPY src ./src
+
+# Build the application
+RUN ./mvnw package -DskipTests
+
+# Expose the port the app runs on
+EXPOSE 8080
+
+# Set the command to run the app
+ENTRYPOINT ["java", "-jar", "target/javachat-server-1.0-SNAPSHOT.jar"]
