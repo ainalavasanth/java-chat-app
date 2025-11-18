@@ -8,6 +8,11 @@ WORKDIR /app
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
 
+# --- FIX STARTS HERE ---
+# Give execution rights to the Maven Wrapper
+RUN chmod +x mvnw
+# --- FIX ENDS HERE ---
+
 # Download dependencies (this is cached to speed up builds)
 RUN ./mvnw dependency:go-offline
 
@@ -21,4 +26,5 @@ RUN ./mvnw package -DskipTests
 EXPOSE 8080
 
 # Set the command to run the app
+# NOTE: Make sure your pom.xml actually generates a jar with this exact name!
 ENTRYPOINT ["java", "-jar", "target/javachat-server-1.0-SNAPSHOT.jar"]
