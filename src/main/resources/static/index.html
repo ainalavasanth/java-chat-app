@@ -3,234 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Private Chat</title>
+    <title>Pro Chat</title>
     
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
     <style>
         :root {
-            --primary: #00a884; /* WhatsApp Green */
-            --bg-dark: #111b21;
+            --primary: #00a884;
+            --bg-dark: #0b141a;
             --bg-panel: #202c33;
-            --incoming-bg: #202c33;
-            --outgoing-bg: #005c4b;
-            --text-main: #e9edef;
-            --text-muted: #8696a0;
+            --incoming: #202c33;
+            --outgoing: #005c4b;
+            --text: #e9edef;
+            --accent: #00a884;
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        /* Login Styles */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .login-card { background: var(--bg-panel); padding: 2rem; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #374045; background: #2a3942; color: white; }
+        .login-card button { width: 100%; padding: 12px; background: var(--primary); border: none; border-radius: 8px; color: black; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        /* Chat App Styles */
+        #app-container { display: none; flex: 1; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; width: 100%; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); position: relative; }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            height: 100vh; /* Full viewport height */
-            height: 100dvh; /* Dynamic viewport height for mobile browsers */
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
+        .header { background: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); z-index: 10; }
+        .header h3 { font-size: 1rem; }
+        .header span { font-size: 0.8rem; color: #8696a0; }
 
-        /* --- Login Overlay (The "Code" Screen) --- */
-        #login-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-dark);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            padding: 20px;
-        }
-        .login-box {
-            background: var(--bg-panel);
-            padding: 2rem;
-            border-radius: 10px;
-            width: 100%;
-            max-width: 350px;
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        }
-        .login-box i { color: var(--primary); margin-bottom: 15px; }
-        .login-box h2 { margin-bottom: 10px; font-size: 1.5rem; }
-        .login-box p { color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem; }
+        #chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         
-        .input-group { margin-bottom: 15px; text-align: left; }
-        .input-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 0.8rem; }
-        .login-box input {
-            width: 100%; padding: 12px;
-            background: var(--bg-dark); border: 1px solid #2a3942;
-            color: white; border-radius: 5px; font-size: 1rem;
-        }
-        .login-box button {
-            width: 100%; padding: 12px;
-            background: var(--primary); color: black;
-            border: none; border-radius: 25px;
-            font-weight: bold; font-size: 1rem;
-            cursor: pointer; margin-top: 10px;
-        }
-
-        /* --- Main Chat UI --- */
-        #app-container {
-            display: none; /* Hidden until login */
-            flex: 1;
-            flex-direction: column;
-            height: 100%;
-            max-width: 800px; /* Limit width on desktop */
-            margin: 0 auto; /* Center on desktop */
-            width: 100%;
-            background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
-            background-color: #0b141a; /* Fallback */
-            position: relative;
-        }
-        
-        /* Header */
-        .chat-header {
-            padding: 10px 15px;
-            background: var(--bg-panel);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            z-index: 10;
-        }
-        .header-info { display: flex; align-items: center; gap: 10px; }
-        .room-code-display { font-size: 0.8rem; color: var(--text-muted); }
-
-        /* Chat Area */
-        #chat-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
         /* Messages */
         .message-row { display: flex; width: 100%; }
         .message-row.me { justify-content: flex-end; }
+        .bubble { max-width: 80%; padding: 8px; border-radius: 10px; font-size: 0.95rem; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.2); word-wrap: break-word; }
+        .me .bubble { background-color: var(--outgoing); border-top-right-radius: 0; }
+        .other .bubble { background-color: var(--incoming); border-top-left-radius: 0; }
         
-        .bubble {
-            max-width: 85%;
-            padding: 8px 12px;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            position: relative;
-            line-height: 1.4;
-            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-        }
-        .me .bubble {
-            background-color: var(--outgoing-bg);
-            border-top-right-radius: 0;
-        }
-        .other .bubble {
-            background-color: var(--incoming-bg);
-            border-top-left-radius: 0;
-        }
-        
-        .sender-name {
-            font-size: 0.75rem;
-            color: #d69a43; /* Random color feel */
-            font-weight: bold;
-            margin-bottom: 2px;
-            display: block;
-        }
-        .time {
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.5);
-            float: right;
-            margin-left: 10px;
-            margin-top: 5px;
-        }
+        .sender { font-size: 0.7rem; color: #d69a43; font-weight: bold; margin-bottom: 4px; display: block; }
+        .time { font-size: 0.65rem; color: rgba(255,255,255,0.6); text-align: right; margin-top: 4px; }
 
-        /* System Messages */
-        .system-msg {
-            text-align: center; margin: 10px 0;
-        }
-        .system-msg span {
-            background: #1c272d;
-            color: #8696a0;
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-        }
+        /* Media Styling */
+        .bubble img, .bubble video { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; cursor: pointer; }
+        .file-link { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; text-decoration: none; color: white; margin-top: 5px; }
+        .file-link i { font-size: 1.5rem; color: var(--accent); }
 
         /* Input Area */
-        .chat-footer {
-            background: var(--bg-panel);
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        #message-input {
-            flex: 1;
-            background: #2a3942;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 15px;
-            color: white;
-            font-size: 1rem;
-        }
-        #send-btn {
-            background: var(--primary);
-            border: none;
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            color: black;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-        }
-
+        .footer { background: var(--bg-panel); padding: 10px; display: flex; align-items: center; gap: 10px; }
+        .footer input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: #2a3942; color: white; }
+        .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.2rem; cursor: pointer; padding: 5px; }
+        .icon-btn:hover { color: var(--primary); }
+        #send-btn { background: var(--primary); color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <div class="login-box">
-            <i class="fab fa-whatsapp fa-3x"></i>
-            <h2>Secure Chat</h2>
-            <p>Enter a code to start a private chat.</p>
-            
-            <div class="input-group">
-                <label>Your Name</label>
-                <input type="text" id="username-in" placeholder="e.g. Alice">
-            </div>
-            
-            <div class="input-group">
-                <label>Private Code (Room ID)</label>
-                <input type="password" id="code-in" placeholder="e.g. 5599">
-            </div>
-
-            <button onclick="connect()">Start Chat</button>
+        <div class="login-card">
+            <i class="fab fa-whatsapp fa-3x" style="color: var(--primary); margin-bottom:15px;"></i>
+            <h2>Pro Chat</h2>
+            <input type="text" id="username-in" placeholder="Your Name" autocomplete="off">
+            <input type="password" id="code-in" placeholder="Secret Room Code (e.g. 123)" autocomplete="off">
+            <button onclick="connect()">Join Room</button>
         </div>
     </div>
 
     <div id="app-container">
-        <div class="chat-header">
-            <div class="header-info">
-                <i class="fas fa-user-circle fa-2x" style="color:gray;"></i>
-                <div>
-                    <h3 id="header-title">Private Room</h3>
-                    <div class="room-code-display">Code: <span id="display-code">****</span></div>
-                </div>
+        <div class="header">
+            <div>
+                <h3 id="header-title">Chat Room</h3>
+                <span id="status-text">Disconnected</span>
             </div>
-            <div style="color: var(--primary); font-size: 0.8rem;">
-                <i class="fas fa-lock"></i> End-to-End Encrypted
-            </div>
+            <i class="fas fa-lock" style="color: var(--primary); font-size: 0.8rem;"> E2E Encrypted</i>
         </div>
 
-        <div id="chat-area">
-            <div class="system-msg"><span>Messages are encrypted. Only people with the code can read them.</span></div>
-        </div>
+        <div id="chat-area"></div>
 
-        <div class="chat-footer">
-            <input type="text" id="message-input" placeholder="Message" autocomplete="off">
+        <div class="footer">
+            <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(event)">
+            
+            <button class="icon-btn" onclick="document.getElementById('file-input').click()">
+                <i class="fas fa-paperclip"></i>
+            </button>
+
+            <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleEnter(event)">
             <button id="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
@@ -238,130 +99,133 @@
     <script>
         let stompClient = null;
         let username = null;
-        let chatCode = null;
+        let roomCode = null;
 
-        // --- Connect Function ---
         function connect() {
-            const userIn = document.getElementById('username-in').value.trim();
-            const codeIn = document.getElementById('code-in').value.trim();
+            username = document.getElementById('username-in').value.trim();
+            roomCode = document.getElementById('code-in').value.trim();
+            if(!username || !roomCode) return alert("Name & Code required!");
 
-            if (!userIn || !codeIn) {
-                alert("Name and Code are required!");
-                return;
-            }
-
-            username = userIn;
-            chatCode = codeIn;
-
-            // Switch UI
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            document.getElementById('display-code').innerText = chatCode;
-            document.getElementById('header-title').innerText = "Chatting as " + username;
-
-            // Connect Socket
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; // Hide debug logs
+            stompClient.debug = null; // Quiet mode
 
-            stompClient.connect({}, function() {
-                // Subscribe to Public Topic
+            stompClient.connect({}, () => {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                document.getElementById('header-title').innerText = "Chatting as " + username;
+                document.getElementById('status-text').innerText = "Online • Code: " + roomCode;
+
                 stompClient.subscribe('/topic/public', onMessageReceived);
-                
-                // Announce Join (Encrypted)
-                sendSystemMessage("JOIN");
-            }, function(err) {
-                alert("Connection Error. Please refresh.");
+                sendSystem("JOIN");
+            }, (err) => {
+                alert("Connection failed.");
                 location.reload();
             });
         }
 
         // --- Encryption (AES) ---
-        // The 'Code' acts as the password for encryption
-        function encrypt(text) {
-            return CryptoJS.AES.encrypt(text, chatCode).toString();
-        }
-
-        function decrypt(ciphertext) {
+        function encrypt(data) { return CryptoJS.AES.encrypt(data, roomCode).toString(); }
+        function decrypt(data) {
             try {
-                const bytes = CryptoJS.AES.decrypt(ciphertext, chatCode);
+                const bytes = CryptoJS.AES.decrypt(data, roomCode);
                 const original = bytes.toString(CryptoJS.enc.Utf8);
-                return original || null; // Return null if decryption fails (wrong code)
-            } catch (e) {
-                return null; 
-            }
+                return original || null;
+            } catch(e) { return null; }
         }
 
-        // --- Send Message ---
+        // --- Sending Logic ---
         function sendMessage() {
             const input = document.getElementById('message-input');
             const text = input.value.trim();
-            if(text && stompClient) {
-                const payload = {
-                    from: username,
-                    text: encrypt(text), // Encrypt with Code
-                    type: 'CHAT'
-                };
-                stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(payload));
+            if(text) {
+                sendPayload(text);
                 input.value = '';
-                input.focus();
             }
         }
 
-        function sendSystemMessage(type) {
+        function sendSystem(type) {
+            if(stompClient) stompClient.send("/app/chat.addUser", {}, JSON.stringify({ from: username, text: encrypt(type), type: type }));
+        }
+
+        function sendPayload(content) {
             if(stompClient) {
-                const payload = {
+                stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
                     from: username,
-                    text: encrypt(type), // Encrypt the system event too
-                    type: type
-                };
-                stompClient.send("/app/chat.addUser", {}, JSON.stringify(payload));
+                    text: encrypt(content), // Encrypts Text OR Base64 Image
+                    type: 'CHAT'
+                }));
             }
         }
 
-        // --- Receive Message ---
+        // --- File Handling ---
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Limit file size to 8MB to be safe (Server limit is 10MB)
+            if (file.size > 8 * 1024 * 1024) {
+                alert("File too large! Max 8MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64 = e.target.result;
+                sendPayload(base64); // Send the base64 string directly
+            };
+            reader.readAsDataURL(file);
+            event.target.value = ''; // Reset input
+        }
+
+        // --- Receiving Logic ---
         function onMessageReceived(payload) {
             const msg = JSON.parse(payload.body);
-            
-            // 1. Try to Decrypt
-            const decryptedText = decrypt(msg.text);
-
-            // 2. If decryption fails, it means the message is for a different Room Code
-            //    So we IGNORE it completely.
-            if (decryptedText === null) return; 
-
-            // 3. Render Message
             const chatArea = document.getElementById('chat-area');
+            
+            // Decrypt
+            const content = decrypt(msg.text);
+            if(content === null) return; // Wrong room code, ignore
+
             const div = document.createElement('div');
 
-            if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
-                // Only show if it's not me
-                if (msg.from !== username) {
-                    div.className = 'system-msg';
-                    div.innerHTML = `<span>${msg.from} ${msg.type === 'JOIN' ? 'joined' : 'left'}</span>`;
+            if(msg.type === 'JOIN' || msg.type === 'LEAVE') {
+                if(msg.from !== username) {
+                    div.innerHTML = `<div style="text-align:center; margin:10px;"><span style="background:#1c272d; padding:5px 10px; border-radius:10px; font-size:0.75rem; color:#8696a0;">${msg.from} ${msg.type === 'JOIN' ? 'joined' : 'left'}</span></div>`;
                     chatArea.appendChild(div);
                 }
             } else {
-                // Chat Message
-                div.className = 'message-row ' + (msg.from === username ? 'me' : 'other');
+                const isMe = msg.from === username;
+                let bubbleContent = "";
+
+                // Detect if content is Image, Video, or Text
+                if (content.startsWith("data:image")) {
+                    bubbleContent = `<img src="${content}" onclick="openMedia(this.src)">`;
+                } else if (content.startsWith("data:video")) {
+                    bubbleContent = `<video src="${content}" controls></video>`;
+                } else if (content.startsWith("data:")) {
+                    // Generic file
+                    bubbleContent = `<a href="${content}" download="file" class="file-link"><i class="fas fa-file-alt"></i> Download File</a>`;
+                } else {
+                    // Regular Text
+                    bubbleContent = `<span>${content}</span>`;
+                }
+
+                div.className = `message-row ${isMe ? 'me' : 'other'}`;
                 div.innerHTML = `
                     <div class="bubble">
-                        <span class="sender-name">${msg.from}</span>
-                        ${decryptedText}
-                        <span class="time">${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                        <span class="sender">${msg.from}</span>
+                        ${bubbleContent}
+                        <div class="time">${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                     </div>
                 `;
                 chatArea.appendChild(div);
             }
-
-            // Auto Scroll
             chatArea.scrollTop = chatArea.scrollHeight;
         }
 
-        // Handle Enter Key
-        document.getElementById('message-input').addEventListener('keypress', function(e) {
-            if(e.key === 'Enter') sendMessage();
-        });
+        function handleEnter(e) { if(e.key === 'Enter') sendMessage(); }
+        function openMedia(src) { const w = window.open(""); w.document.write('<img src="' + src + '" style="max-width:100%">'); }
     </script>
 </body>
 </html>

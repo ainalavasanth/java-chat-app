@@ -10,15 +10,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Public endpoint to connect using SockJS or native WebSocket
         registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        // messages sent to destinations prefixed with /app go to @MessageMapping handlers
         config.setApplicationDestinationPrefixes("/app");
-        // simple in-memory broker that broadcasts to subscribers of /topic
         config.enableSimpleBroker("/topic");
+    }
+
+    // ⬇️ ADD THIS PART TO ALLOW SENDING IMAGES/VIDEOS ⬇️
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        // Allow messages up to 10MB (default is usually 64KB)
+        registration.setMessageSizeLimit(10 * 1024 * 1024); 
+        registration.setSendBufferSizeLimit(10 * 1024 * 1024);
+        registration.setSendTimeLimit(20 * 10000);
     }
 }
