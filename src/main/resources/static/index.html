@@ -33,8 +33,10 @@
         #app-container { display: none; flex: 1; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; width: 100%; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); position: relative; }
         
         .header { background: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); z-index: 10; }
-        .header h3 { font-size: 1rem; }
-        .header span { font-size: 0.8rem; color: #8696a0; }
+        .header h3 { font-size: 1rem; display: flex; align-items: center; gap: 10px;}
+        .header-actions { display: flex; gap: 15px; }
+        .icon-btn-head { background: none; border: none; color: #8696a0; font-size: 1.1rem; cursor: pointer; }
+        .icon-btn-head:hover { color: #ef4444; } /* Red for delete */
 
         #chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         
@@ -77,9 +79,14 @@
         <div class="header">
             <div>
                 <h3 id="header-title">Chat Room</h3>
-                <span id="status-text">Disconnected</span>
+                <span id="status-text" style="font-size: 0.8rem; color: #8696a0;">Connecting...</span>
             </div>
-            <i class="fas fa-lock" style="color: var(--primary); font-size: 0.8rem;"> E2E Encrypted</i>
+            <div class="header-actions">
+                <button class="icon-btn-head" onclick="clearChat()" title="Clear Chat">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <i class="fas fa-lock" style="color: var(--primary); font-size: 0.8rem; margin-top: 5px;"> E2E</i>
+            </div>
         </div>
 
         <div id="chat-area"></div>
@@ -108,20 +115,44 @@
 
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; // Quiet mode
+            stompClient.debug = null; 
 
             stompClient.connect({}, () => {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
-                document.getElementById('header-title').innerText = "Chatting as " + username;
+                document.getElementById('header-title').innerText = username;
                 document.getElementById('status-text').innerText = "Online • Code: " + roomCode;
 
                 stompClient.subscribe('/topic/public', onMessageReceived);
-                sendSystem("JOIN");
+                
+                // Send Join Event
+                stompClient.send("/app/chat.addUser", {}, JSON.stringify({ 
+                    from: username, 
+                    text: encrypt("JOIN"), 
+                    type: 'JOIN' 
+                }));
+
             }, (err) => {
                 alert("Connection failed.");
                 location.reload();
             });
+        }
+
+        // --- Clear Chat Logic ---
+        function clearChat() {
+            const pin = prompt("Enter Room Code to Clear Chat:");
+            if (pin === roomCode) {
+                if (confirm("Are you sure? This deletes history for EVERYONE.")) {
+                    // Send CLEAR command to server
+                    stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
+                        from: username,
+                        text: "CLEARED",
+                        type: 'CLEAR'
+                    }));
+                }
+            } else if (pin) {
+                alert("Wrong Code! Cannot clear chat.");
+            }
         }
 
         // --- Encryption (AES) ---
@@ -144,15 +175,11 @@
             }
         }
 
-        function sendSystem(type) {
-            if(stompClient) stompClient.send("/app/chat.addUser", {}, JSON.stringify({ from: username, text: encrypt(type), type: type }));
-        }
-
         function sendPayload(content) {
             if(stompClient) {
                 stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
                     from: username,
-                    text: encrypt(content), // Encrypts Text OR Base64 Image
+                    text: encrypt(content), 
                     type: 'CHAT'
                 }));
             }
@@ -162,28 +189,35 @@
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
-
-            // Limit file size to 8MB to be safe (Server limit is 10MB)
             if (file.size > 8 * 1024 * 1024) {
                 alert("File too large! Max 8MB.");
                 return;
             }
-
             const reader = new FileReader();
             reader.onload = function(e) {
-                const base64 = e.target.result;
-                sendPayload(base64); // Send the base64 string directly
+                sendPayload(e.target.result);
             };
             reader.readAsDataURL(file);
-            event.target.value = ''; // Reset input
+            event.target.value = '';
         }
 
         // --- Receiving Logic ---
         function onMessageReceived(payload) {
             const msg = JSON.parse(payload.body);
             const chatArea = document.getElementById('chat-area');
+
+            // 1. HANDLE CLEAR COMMAND
+            if (msg.type === 'CLEAR') {
+                chatArea.innerHTML = ''; // Wipe Screen
+                const div = document.createElement('div');
+                div.style.textAlign = "center";
+                div.innerHTML = `<span style="background:#ef4444; color:white; padding:5px 10px; border-radius:10px; font-size:0.8rem;">Chat History Cleared by ${msg.from}</span>`;
+                chatArea.appendChild(div);
+                return;
+            }
             
-            // Decrypt
+            // 2. DECRYPT
+            // If it's HISTORY type, it's same as CHAT but we handle it silently
             const content = decrypt(msg.text);
             if(content === null) return; // Wrong room code, ignore
 
@@ -195,19 +229,17 @@
                     chatArea.appendChild(div);
                 }
             } else {
+                // CHAT or HISTORY types
                 const isMe = msg.from === username;
                 let bubbleContent = "";
 
-                // Detect if content is Image, Video, or Text
                 if (content.startsWith("data:image")) {
                     bubbleContent = `<img src="${content}" onclick="openMedia(this.src)">`;
                 } else if (content.startsWith("data:video")) {
                     bubbleContent = `<video src="${content}" controls></video>`;
                 } else if (content.startsWith("data:")) {
-                    // Generic file
                     bubbleContent = `<a href="${content}" download="file" class="file-link"><i class="fas fa-file-alt"></i> Download File</a>`;
                 } else {
-                    // Regular Text
                     bubbleContent = `<span>${content}</span>`;
                 }
 

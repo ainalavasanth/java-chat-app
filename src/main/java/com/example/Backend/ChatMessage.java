@@ -6,10 +6,14 @@ public class ChatMessage {
     private MessageType type;
 
     public enum MessageType {
-        CHAT, JOIN, LEAVE
+        CHAT,
+        JOIN,
+        LEAVE,
+        HISTORY, // New: To send list of old messages
+        CLEAR    // New: To wipe the chat
     }
 
-    // getters and setters
+    // Getters and Setters
     public String getFrom() { return from; }
     public void setFrom(String from) { this.from = from; }
 
