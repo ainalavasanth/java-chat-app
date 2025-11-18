@@ -7,12 +7,16 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger; // For counting users
 
 @Controller
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final List<ChatMessage> chatHistory = new CopyOnWriteArrayList<>();
+    
+    // Thread-safe User Counter
+    private static final AtomicInteger activeUsers = new AtomicInteger(0);
 
     public ChatController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
@@ -20,24 +24,27 @@ public class ChatController {
 
     @MessageMapping("/chat.addUser")
     public void addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        // 1. Add username to session
         headerAccessor.getSessionAttributes().put("username", chatMessage.getFrom());
         
-        // 2. Broadcast "User Joined" to EVERYONE
-        chatMessage.setType(ChatMessage.MessageType.JOIN);
-        messagingTemplate.convertAndSend("/topic/public", chatMessage);
+        // Increment User Count
+        int currentCount = activeUsers.incrementAndGet();
 
-        // 3. Send History ONLY to the new user (Private Channel)
-        // We use the senderId sent by the client to target the message
+        // Notify Everyone
+        ChatMessage joinMessage = new ChatMessage();
+        joinMessage.setFrom(chatMessage.getFrom());
+        joinMessage.setType(ChatMessage.MessageType.JOIN);
+        joinMessage.setOnlineCount(currentCount); // Send count
+        messagingTemplate.convertAndSend("/topic/public", joinMessage);
+
+        // Send History (Private Whisper)
+        String uniqueUserChannel = "/topic/history/" + chatMessage.getSenderId();
         if (chatMessage.getSenderId() != null) {
             for (ChatMessage oldMsg : chatHistory) {
                 ChatMessage historyMsg = new ChatMessage();
                 historyMsg.setFrom(oldMsg.getFrom());
                 historyMsg.setText(oldMsg.getText());
                 historyMsg.setType(ChatMessage.MessageType.HISTORY); 
-                
-                // Send to /topic/history/THE_USER_ID
-                messagingTemplate.convertAndSend("/topic/history/" + chatMessage.getSenderId(), historyMsg);
+                messagingTemplate.convertAndSend(uniqueUserChannel, historyMsg);
             }
         }
     }
@@ -47,7 +54,13 @@ public class ChatController {
         if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
             chatHistory.clear();
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
-        } else {
+        } 
+        else if (chatMessage.getType() == ChatMessage.MessageType.TYPING) {
+            // Just pass the typing signal through, don't save to history
+            messagingTemplate.convertAndSend("/topic/public", chatMessage);
+        }
+        else {
+            // Normal Chat
             chatHistory.add(chatMessage);
             chatMessage.setType(ChatMessage.MessageType.CHAT);
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
