@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Chat</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <title>VASApp</title> <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -20,75 +18,94 @@
             --text: #e9edef;
             --accent: #00a884;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; font-family: Helvetica, Arial, sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
+        /* Login Styles */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .login-card { background: var(--bg-panel); padding: 2rem; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .logo-text { font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px; display: block;}
         .login-card input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #374045; background: #2a3942; color: white; }
         .login-card button { width: 100%; padding: 12px; background: var(--primary); border: none; border-radius: 8px; color: black; font-weight: bold; cursor: pointer; margin-top: 10px; }
 
+        /* App Styles */
         #app-container { display: none; flex: 1; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; width: 100%; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); position: relative; }
+        
         .header { background: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); z-index: 10; }
-        .header h3 { font-size: 1rem; display: flex; align-items: center; gap: 10px;}
+        .header-title { font-weight: bold; font-size: 1.1rem; color: var(--text); }
+        .header-subtitle { font-size: 0.8rem; color: #8696a0; margin-top: 2px;}
         .header-actions { display: flex; gap: 15px; }
         .icon-btn-head { background: none; border: none; color: #8696a0; font-size: 1.1rem; cursor: pointer; }
         .icon-btn-head:hover { color: #ef4444; }
 
         #chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* Bubbles */
         .message-row { display: flex; width: 100%; }
         .message-row.me { justify-content: flex-end; }
-        .bubble { max-width: 80%; padding: 8px; border-radius: 10px; font-size: 0.95rem; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.2); word-wrap: break-word; }
+        .bubble { max-width: 80%; padding: 8px 10px; border-radius: 10px; font-size: 0.95rem; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.2); word-wrap: break-word; }
         .me .bubble { background-color: var(--outgoing); border-top-right-radius: 0; }
         .other .bubble { background-color: var(--incoming); border-top-left-radius: 0; }
-        .sender { font-size: 0.7rem; color: #d69a43; font-weight: bold; margin-bottom: 4px; display: block; }
-        .time { font-size: 0.65rem; color: rgba(255,255,255,0.6); text-align: right; margin-top: 4px; }
+        
+        .sender { font-size: 0.75rem; color: #d69a43; font-weight: bold; margin-bottom: 4px; display: block; }
+        .time { font-size: 0.65rem; color: rgba(255,255,255,0.6); text-align: right; margin-top: 2px; float: right; margin-left: 8px;}
         
         .bubble img, .bubble video { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; cursor: pointer; }
         .file-link { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; text-decoration: none; color: white; margin-top: 5px; }
-        .file-link i { font-size: 1.5rem; color: var(--accent); }
 
-        .footer { background: var(--bg-panel); padding: 10px; display: flex; align-items: center; gap: 10px; }
-        .footer input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: #2a3942; color: white; }
-        .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.2rem; cursor: pointer; padding: 5px; }
+        /* Footer */
+        .footer { background: var(--bg-panel); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
+        .footer input { flex: 1; padding: 10px 15px; border-radius: 20px; border: none; background: #2a3942; color: white; font-size: 1rem;}
+        .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.4rem; cursor: pointer; padding: 5px; }
         .icon-btn:hover { color: var(--primary); }
-        #send-btn { background: var(--primary); color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        #send-btn { background: var(--primary); color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;}
     </style>
 </head>
 <body>
 
     <div id="login-screen">
         <div class="login-card">
-            <i class="fab fa-whatsapp fa-3x" style="color: var(--primary); margin-bottom:15px;"></i>
-            <h2>Pro Chat</h2>
+            <span class="logo-text">VASApp</span>
+            <p style="color:#8696a0; margin-bottom: 20px;">Simple. Secure. Reliable.</p>
             <input type="text" id="username-in" placeholder="Your Name" autocomplete="off">
-            <input type="password" id="code-in" placeholder="Secret Room Code (e.g. 123)" autocomplete="off">
-            <button onclick="connect()">Join Room</button>
+            <input type="password" id="code-in" placeholder="Room Code (Pin)" autocomplete="off">
+            <button onclick="connect()">Start Messaging</button>
         </div>
     </div>
 
     <div id="app-container">
         <div class="header">
-            <div>
-                <h3 id="header-title">Chat Room</h3>
-                <span id="status-text" style="font-size: 0.8rem; color: #8696a0;">Connecting...</span>
+            <div style="display:flex; align-items:center; gap: 10px;">
+                <i class="fas fa-arrow-left icon-btn-head" onclick="location.reload()"></i>
+                <div>
+                    <div class="header-title" id="header-title">VASApp Group</div>
+                    <div class="header-subtitle" id="status-text">Tap to see info</div>
+                </div>
             </div>
             <div class="header-actions">
                 <button class="icon-btn-head" onclick="clearChat()" title="Clear Chat">
-                    <i class="fas fa-trash-alt"></i>
+                    <i class="fas fa-trash"></i>
                 </button>
-                <i class="fas fa-lock" style="color: var(--primary); font-size: 0.8rem; margin-top: 5px;"> E2E</i>
+                <i class="fas fa-ellipsis-v icon-btn-head"></i>
             </div>
         </div>
 
-        <div id="chat-area"></div>
+        <div id="chat-area">
+            <div style="text-align:center; margin-top:20px; margin-bottom:20px;">
+                <span style="background:#1c272d; color:#ffd279; padding:8px 15px; border-radius:10px; font-size:0.75rem; box-shadow: 0 1px 1px rgba(0,0,0,0.2);">
+                    <i class="fas fa-lock"></i> Messages are end-to-end encrypted. No one outside this room can read them.
+                </span>
+            </div>
+        </div>
 
         <div class="footer">
             <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(event)">
+            
             <button class="icon-btn" onclick="document.getElementById('file-input').click()">
                 <i class="fas fa-paperclip"></i>
             </button>
-            <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleEnter(event)">
+
+            <input type="text" id="message-input" placeholder="Message" onkeypress="handleEnter(event)">
             <button id="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
@@ -98,49 +115,49 @@
         let username = null;
         let roomCode = null;
         
-        // Generate a unique ID for this session (Unique to this browser tab)
-        const myId = "user-" + Math.random().toString(36).substr(2, 9);
+        // Create a Random Unique ID for this session
+        // This prevents the user from receiving public history broadcasts meant for others
+        const myId = "user_" + Math.floor(Math.random() * 1000000);
 
         function connect() {
             username = document.getElementById('username-in').value.trim();
             roomCode = document.getElementById('code-in').value.trim();
-            if(!username || !roomCode) return alert("Name & Code required!");
+            if(!username || !roomCode) return alert("Please enter Name and Code");
 
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; 
+            stompClient.debug = null; // Disable debug logs
 
             stompClient.connect({}, () => {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
-                document.getElementById('header-title').innerText = username;
-                document.getElementById('status-text').innerText = "Online • Code: " + roomCode;
+                document.getElementById('status-text').innerText = "Secured Room • " + roomCode;
 
-                // 1. Subscribe to Public Topic (For New Live Messages)
+                // 1. Subscribe to LIVE chat (Public Channel)
                 stompClient.subscribe('/topic/public', onMessageReceived);
                 
-                // 2. Subscribe to Private History Channel (For Old Messages)
+                // 2. Subscribe to HISTORY (Private Channel using myId)
                 stompClient.subscribe('/topic/history/' + myId, onMessageReceived);
                 
-                // 3. Send JOIN with myId so server knows where to send history
+                // 3. Send JOIN event with myId so server sends history ONLY to me
                 stompClient.send("/app/chat.addUser", {}, JSON.stringify({ 
                     from: username, 
                     text: encrypt("JOIN"), 
                     type: 'JOIN',
-                    senderId: myId // Important!
+                    senderId: myId 
                 }));
 
             }, (err) => {
-                alert("Connection failed.");
+                alert("Could not connect to server. Try again.");
                 location.reload();
             });
         }
 
-        // --- Clear Chat Logic ---
+        // --- Clear Chat ---
         function clearChat() {
-            const pin = prompt("Enter Room Code to Clear Chat:");
+            const pin = prompt("Enter Room Code to Clear Chat for EVERYONE:");
             if (pin === roomCode) {
-                if (confirm("Are you sure? This deletes history for EVERYONE.")) {
+                if (confirm("This will delete all messages permanently. Continue?")) {
                     stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
                         from: username,
                         text: "CLEARED",
@@ -148,11 +165,11 @@
                     }));
                 }
             } else if (pin) {
-                alert("Wrong Code!");
+                alert("Incorrect Code!");
             }
         }
 
-        // --- Encryption (AES) ---
+        // --- Encryption ---
         function encrypt(data) { return CryptoJS.AES.encrypt(data, roomCode).toString(); }
         function decrypt(data) {
             try {
@@ -162,13 +179,14 @@
             } catch(e) { return null; }
         }
 
-        // --- Sending Logic ---
+        // --- Messaging ---
         function sendMessage() {
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if(text) {
                 sendPayload(text);
                 input.value = '';
+                input.focus();
             }
         }
 
@@ -176,9 +194,8 @@
             if(stompClient) {
                 stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
                     from: username,
-                    text: encrypt(content), 
-                    type: 'CHAT',
-                    senderId: myId
+                    text: encrypt(content),
+                    type: 'CHAT'
                 }));
             }
         }
@@ -186,53 +203,53 @@
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
-            if (file.size > 8 * 1024 * 1024) {
-                alert("File too large! Max 8MB.");
-                return;
-            }
+            if (file.size > 8 * 1024 * 1024) { alert("File too large (Max 8MB)"); return; }
+            
             const reader = new FileReader();
             reader.onload = function(e) { sendPayload(e.target.result); };
             reader.readAsDataURL(file);
             event.target.value = '';
         }
 
-        // --- Receiving Logic ---
+        // --- Handling Messages ---
         function onMessageReceived(payload) {
             const msg = JSON.parse(payload.body);
             const chatArea = document.getElementById('chat-area');
 
+            // Handle Clear
             if (msg.type === 'CLEAR') {
-                chatArea.innerHTML = ''; 
-                const div = document.createElement('div');
-                div.style.textAlign = "center";
-                div.innerHTML = `<span style="background:#ef4444; color:white; padding:5px 10px; border-radius:10px; font-size:0.8rem;">Chat History Cleared by ${msg.from}</span>`;
-                chatArea.appendChild(div);
+                chatArea.innerHTML = `
+                    <div style="text-align:center; margin-top:20px; margin-bottom:20px;">
+                        <span style="background:#1c272d; color:#ffd279; padding:8px 15px; border-radius:10px; font-size:0.75rem;">
+                            <i class="fas fa-lock"></i> Messages are end-to-end encrypted.
+                        </span>
+                    </div>
+                    <div style="text-align:center; margin:10px;"><span style="background:#ef4444; color:white; padding:5px 10px; border-radius:10px; font-size:0.7rem;">Chat Cleared by ${msg.from}</span></div>
+                `;
                 return;
             }
             
+            // Decrypt
             const content = decrypt(msg.text);
             if(content === null) return; 
 
             const div = document.createElement('div');
 
             if(msg.type === 'JOIN' || msg.type === 'LEAVE') {
+                // Only show if it's NOT me
                 if(msg.from !== username) {
                     div.innerHTML = `<div style="text-align:center; margin:10px;"><span style="background:#1c272d; padding:5px 10px; border-radius:10px; font-size:0.75rem; color:#8696a0;">${msg.from} ${msg.type === 'JOIN' ? 'joined' : 'left'}</span></div>`;
                     chatArea.appendChild(div);
                 }
             } else {
+                // Chat or History Message
                 const isMe = msg.from === username;
-                let bubbleContent = "";
+                let bubbleContent = `<span>${content}</span>`;
 
-                if (content.startsWith("data:image")) {
-                    bubbleContent = `<img src="${content}" onclick="openMedia(this.src)">`;
-                } else if (content.startsWith("data:video")) {
-                    bubbleContent = `<video src="${content}" controls></video>`;
-                } else if (content.startsWith("data:")) {
-                    bubbleContent = `<a href="${content}" download="file" class="file-link"><i class="fas fa-file-alt"></i> Download File</a>`;
-                } else {
-                    bubbleContent = `<span>${content}</span>`;
-                }
+                // Detect Media
+                if (content.startsWith("data:image")) bubbleContent = `<img src="${content}" onclick="openMedia(this.src)">`;
+                else if (content.startsWith("data:video")) bubbleContent = `<video src="${content}" controls></video>`;
+                else if (content.startsWith("data:")) bubbleContent = `<a href="${content}" download="file" class="file-link"><i class="fas fa-file"></i> File Attached</a>`;
 
                 div.className = `message-row ${isMe ? 'me' : 'other'}`;
                 div.innerHTML = `
@@ -248,7 +265,7 @@
         }
 
         function handleEnter(e) { if(e.key === 'Enter') sendMessage(); }
-        function openMedia(src) { const w = window.open(""); w.document.write('<img src="' + src + '" style="max-width:100%">'); }
+        function openMedia(src) { const w = window.open(""); w.document.write('<body style="background:black; margin:0; display:flex; align-items:center; justify-content:center; height:100vh;"><img src="' + src + '" style="max-width:100%; max-height:100%"></body>'); }
     </script>
 </body>
 </html>
