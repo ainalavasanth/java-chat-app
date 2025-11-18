@@ -26,14 +26,17 @@
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .login-card { background: var(--bg-panel); padding: 2rem; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .logo-text { font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px; display: block;}
-        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #374045; background: #2a3942; color: white; }
-        .login-card button { width: 100%; padding: 12px; background: var(--primary); border: none; border-radius: 8px; color: black; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { font-size: 0.8rem; color: #8696a0; margin-left: 5px; }
+        .login-card input { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #374045; background: #2a3942; color: white; font-size: 1rem;}
+        .login-card button { width: 100%; padding: 12px; background: var(--primary); border: none; border-radius: 8px; color: black; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 1rem;}
 
         /* App */
         #app-container { display: none; flex: 1; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; width: 100%; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); position: relative; }
         
         .header { background: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); z-index: 10; }
-        .header-title { font-weight: bold; font-size: 1.1rem; }
+        .header-title { font-weight: bold; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;}
         .header-subtitle { font-size: 0.8rem; color: var(--primary); margin-top: 2px; font-weight: bold;}
         .header-actions { display: flex; gap: 15px; }
         .icon-btn-head { background: none; border: none; color: #8696a0; font-size: 1.1rem; cursor: pointer; }
@@ -65,17 +68,30 @@
     <div id="login-screen">
         <div class="login-card">
             <span class="logo-text">VASApp</span>
-            <p style="color:#8696a0; margin-bottom: 20px;">Secure. Private. Persistent.</p>
-            <input type="text" id="username-in" placeholder="Your Name" autocomplete="off">
-            <input type="password" id="code-in" placeholder="Room Code" autocomplete="off">
-            <button onclick="attemptLogin()">Enter Room</button>
+            
+            <div class="input-group">
+                <label>Group Name</label>
+                <input type="text" id="group-in" placeholder="e.g. Family, Office, Trip" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label>Your Name</label>
+                <input type="text" id="username-in" placeholder="e.g. Bhavya" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label>Room Code (Pin)</label>
+                <input type="password" id="code-in" placeholder="****" autocomplete="off">
+            </div>
+
+            <button onclick="attemptLogin()">Enter VASApp</button>
         </div>
     </div>
 
     <div id="app-container">
         <div class="header">
             <div>
-                <div class="header-title" id="header-title">VASApp</div>
+                <div class="header-title" id="header-title">VASApp Group</div>
                 <div class="header-subtitle" id="status-text">Connecting...</div>
             </div>
             <div class="header-actions">
@@ -106,6 +122,7 @@
         let stompClient = null;
         let username = null;
         let roomCode = null;
+        let groupName = null;
         const myId = "user_" + Math.floor(Math.random() * 1000000);
         let typingTimeout = null;
 
@@ -113,9 +130,12 @@
         window.onload = function() {
             const savedUser = localStorage.getItem("vas_user");
             const savedCode = localStorage.getItem("vas_code");
-            if(savedUser && savedCode) {
+            const savedGroup = localStorage.getItem("vas_group");
+            
+            if(savedUser && savedCode && savedGroup) {
                 username = savedUser;
                 roomCode = savedCode;
+                groupName = savedGroup;
                 connect();
             }
         };
@@ -123,17 +143,22 @@
         function attemptLogin() {
             username = document.getElementById('username-in').value.trim();
             roomCode = document.getElementById('code-in').value.trim();
-            if(!username || !roomCode) return alert("Please enter details");
+            groupName = document.getElementById('group-in').value.trim();
+
+            if(!username || !roomCode || !groupName) return alert("All fields are required!");
             
-            // Save to Local Storage
+            // Save everything
             localStorage.setItem("vas_user", username);
             localStorage.setItem("vas_code", roomCode);
+            localStorage.setItem("vas_group", groupName);
+            
             connect();
         }
 
         function logout() {
             localStorage.removeItem("vas_user");
             localStorage.removeItem("vas_code");
+            localStorage.removeItem("vas_group");
             location.reload();
         }
 
@@ -145,7 +170,9 @@
             stompClient.connect({}, () => {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
-                document.getElementById('header-title').innerText = username;
+                
+                // SET THE GROUP NAME IN HEADER
+                document.getElementById('header-title').innerText = groupName;
 
                 stompClient.subscribe('/topic/public', onMessageReceived);
                 stompClient.subscribe('/topic/history/' + myId, onMessageReceived);
@@ -155,8 +182,6 @@
                 }));
             }, (err) => {
                 console.error(err);
-                // If connection fails, maybe code changed? Logout to be safe
-                // logout(); 
             });
         }
 
@@ -173,12 +198,8 @@
             const indicator = document.getElementById('typing-indicator');
             indicator.innerText = sender + " is typing...";
             indicator.style.display = 'block';
-            
-            // Hide after 2 seconds
             if(typingTimeout) clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                indicator.style.display = 'none';
-            }, 2000);
+            typingTimeout = setTimeout(() => { indicator.style.display = 'none'; }, 2000);
         }
 
         // --- Encryption ---
@@ -214,24 +235,23 @@
             const msg = JSON.parse(payload.body);
             const chatArea = document.getElementById('chat-area');
 
-            // 1. Update Online Count
+            // Online Count
             if (msg.onlineCount > 0) {
-                document.getElementById('status-text').innerText = msg.onlineCount + " Online • " + roomCode;
+                document.getElementById('status-text').innerText = msg.onlineCount + " Online";
             }
 
-            // 2. Handle Typing
+            // Typing
             if (msg.type === 'TYPING') {
                 if (msg.from !== username) showTyping(msg.from);
                 return;
             }
 
-            // 3. Handle Clear
+            // Clear
             if (msg.type === 'CLEAR') {
                 chatArea.innerHTML = `<div style="text-align:center; margin:20px;"><span style="background:#ef4444; color:white; padding:5px 10px; border-radius:10px; font-size:0.7rem;">Chat Cleared</span></div>`;
                 return;
             }
 
-            // 4. Decrypt
             const content = decrypt(msg.text);
             if(content === null) return; 
 
