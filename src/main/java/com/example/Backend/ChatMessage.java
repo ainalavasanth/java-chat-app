@@ -4,16 +4,12 @@ public class ChatMessage {
     private String from;
     private String text;
     private String senderId;
+    private String time; // New: Stores the actual time
     private MessageType type;
-    private int onlineCount; // New: To send the live user count
+    private int onlineCount;
 
     public enum MessageType {
-        CHAT,
-        JOIN,
-        LEAVE,
-        HISTORY,
-        CLEAR,
-        TYPING // New: Typing status
+        CHAT, JOIN, LEAVE, HISTORY, CLEAR, TYPING
     }
 
     // Getters and Setters
@@ -26,9 +22,12 @@ public class ChatMessage {
     public String getSenderId() { return senderId; }
     public void setSenderId(String senderId) { this.senderId = senderId; }
 
+    public String getTime() { return time; } // New Getter
+    public void setTime(String time) { this.time = time; } // New Setter
+
     public MessageType getType() { return type; }
     public void setType(MessageType type) { this.type = type; }
 
-    public int getOnlineCount() { return onlineCount; } // New Getter
-    public void setOnlineCount(int onlineCount) { this.onlineCount = onlineCount; } // New Setter
+    public int getOnlineCount() { return onlineCount; }
+    public void setOnlineCount(int onlineCount) { this.onlineCount = onlineCount; }
 }
