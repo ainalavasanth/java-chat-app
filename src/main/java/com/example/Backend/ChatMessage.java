@@ -2,25 +2,35 @@ package com.example.Backend;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import java.util.HashMap;
+import java.util.Map;
 
-@Document(collection = "messages") // <--- This tells MongoDB to create a "messages" table
+@Document(collection = "messages")
 public class ChatMessage {
     
     @Id
-    private String id; // Unique DB ID
+    private String id; // MongoDB ID
+    private String messageId; // Client-generated ID (Unique for tracking)
     private String from;
     private String text;
     private String senderId;
     private String time;
-    private String groupName; 
+    private String groupName;
+    private boolean isRead; // For Blue Ticks
+    
+    // Stores reactions: Key = Username, Value = Emoji (e.g., "Bhavya" -> "❤️")
+    private Map<String, String> reactions = new HashMap<>();
+    
     private MessageType type;
     private int onlineCount;
 
-    public enum MessageType { CHAT, JOIN, LEAVE, HISTORY, CLEAR, TYPING }
+    public enum MessageType { CHAT, JOIN, LEAVE, HISTORY, CLEAR, TYPING, READ, REACTION }
 
-    // Getters and Setters
+    // Getters & Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+    public String getMessageId() { return messageId; }
+    public void setMessageId(String messageId) { this.messageId = messageId; }
     public String getFrom() { return from; }
     public void setFrom(String from) { this.from = from; }
     public String getText() { return text; }
@@ -31,6 +41,10 @@ public class ChatMessage {
     public void setTime(String time) { this.time = time; }
     public String getGroupName() { return groupName; }
     public void setGroupName(String groupName) { this.groupName = groupName; }
+    public boolean isRead() { return isRead; }
+    public void setRead(boolean read) { isRead = read; }
+    public Map<String, String> getReactions() { return reactions; }
+    public void setReactions(Map<String, String> reactions) { this.reactions = reactions; }
     public MessageType getType() { return type; }
     public void setType(MessageType type) { this.type = type; }
     public int getOnlineCount() { return onlineCount; }

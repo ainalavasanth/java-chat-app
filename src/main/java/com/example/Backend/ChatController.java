@@ -15,9 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatRepository chatRepository; // <--- Database Connection
-
-    // Keep track of live users in RAM (this is fine)
+    private final ChatRepository chatRepository;
     private static final Set<String> activeSessions = ConcurrentHashMap.newKeySet();
 
     public ChatController(SimpMessagingTemplate messagingTemplate, ChatRepository chatRepository) {
@@ -25,7 +23,6 @@ public class ChatController {
         this.chatRepository = chatRepository;
     }
 
-    // Helper for the EventListener
     public int getActiveUserCount() { return activeSessions.size(); }
     public void removeSession(String sessionId) { activeSessions.remove(sessionId); }
 
@@ -37,26 +34,20 @@ public class ChatController {
         chatMessage.setTime(getCurrentTime());
         chatMessage.setType(ChatMessage.MessageType.JOIN);
         chatMessage.setOnlineCount(activeSessions.size());
-        
         messagingTemplate.convertAndSend("/topic/public", chatMessage);
 
-        // 🚀 LOAD HISTORY FROM DATABASE
         if (chatMessage.getGroupName() != null) {
-            // Find messages ONLY for this group
             List<ChatMessage> history = chatRepository.findByGroupName(chatMessage.getGroupName());
-            
             String uniqueUserChannel = "/topic/history/" + chatMessage.getSenderId();
-            
             for (ChatMessage oldMsg : history) {
-                // We copy it to a new object to change the type to HISTORY
-                // This prevents the frontend from playing the "Ping" sound for old messages
                 ChatMessage historyMsg = new ChatMessage();
+                historyMsg.setMessageId(oldMsg.getMessageId());
                 historyMsg.setFrom(oldMsg.getFrom());
                 historyMsg.setText(oldMsg.getText());
                 historyMsg.setTime(oldMsg.getTime());
-                historyMsg.setGroupName(oldMsg.getGroupName());
+                historyMsg.setRead(oldMsg.isRead());
+                historyMsg.setReactions(oldMsg.getReactions());
                 historyMsg.setType(ChatMessage.MessageType.HISTORY); 
-                
                 messagingTemplate.convertAndSend(uniqueUserChannel, historyMsg);
             }
         }
@@ -67,7 +58,6 @@ public class ChatController {
         chatMessage.setTime(getCurrentTime());
 
         if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
-            // 🚀 DELETE FROM DATABASE
             if(chatMessage.getGroupName() != null) {
                 List<ChatMessage> msgs = chatRepository.findByGroupName(chatMessage.getGroupName());
                 chatRepository.deleteAll(msgs);
@@ -77,12 +67,34 @@ public class ChatController {
         else if (chatMessage.getType() == ChatMessage.MessageType.TYPING) {
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
+        else if (chatMessage.getType() == ChatMessage.MessageType.READ) {
+            // Update Database: Mark message as Read
+            ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
+            if (existing != null) {
+                existing.setRead(true);
+                chatRepository.save(existing);
+                // Broadcast to everyone so they see the Blue Tick
+                messagingTemplate.convertAndSend("/topic/public", chatMessage);
+            }
+        }
+        else if (chatMessage.getType() == ChatMessage.MessageType.REACTION) {
+            // Update Database: Add Reaction
+            ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
+            if (existing != null) {
+                // Text contains the Emoji, From contains the user
+                existing.getReactions().put(chatMessage.getFrom(), chatMessage.getText());
+                chatRepository.save(existing);
+                
+                // Send updated reactions to everyone
+                chatMessage.setReactions(existing.getReactions());
+                messagingTemplate.convertAndSend("/topic/public", chatMessage);
+            }
+        }
         else {
-            // 🚀 SAVE TO DATABASE
+            // Save Normal Message
             if(chatMessage.getGroupName() != null) {
                 chatRepository.save(chatMessage);
             }
-
             chatMessage.setType(ChatMessage.MessageType.CHAT);
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
