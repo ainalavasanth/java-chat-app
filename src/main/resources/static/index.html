@@ -22,7 +22,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; outline: none; font-family: Helvetica, Arial, sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* --- Login Screen --- */
+        /* Login */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .login-card { background: var(--bg-panel); padding: 2rem; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .logo-text { font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px; display: block;}
@@ -32,10 +32,9 @@
         .login-card input { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #374045; background: #2a3942; color: white; font-size: 1rem;}
         .login-card button { width: 100%; padding: 12px; background: var(--primary); border: none; border-radius: 8px; color: black; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 1rem;}
 
-        /* --- App Container --- */
+        /* App */
         #app-container { display: none; flex: 1; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; width: 100%; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); position: relative; }
         
-        /* Header */
         .header { background: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); z-index: 10; }
         .header-title { font-weight: bold; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;}
         .header-subtitle { font-size: 0.8rem; color: var(--primary); margin-top: 2px; font-weight: bold;}
@@ -47,24 +46,18 @@
         #typing-indicator { position: absolute; bottom: 70px; left: 20px; background: rgba(32, 44, 51, 0.9); padding: 5px 10px; border-radius: 10px; font-size: 0.75rem; color: var(--primary); display: none; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Chat Area */
         #chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        
-        /* Messages */
         .message-row { display: flex; width: 100%; }
         .message-row.me { justify-content: flex-end; }
         .bubble { max-width: 80%; padding: 8px 10px; border-radius: 10px; font-size: 0.95rem; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.2); word-wrap: break-word; }
         .me .bubble { background-color: var(--outgoing); border-top-right-radius: 0; }
         .other .bubble { background-color: var(--incoming); border-top-left-radius: 0; }
-        
         .sender { font-size: 0.7rem; color: #d69a43; font-weight: bold; display: block; margin-bottom: 3px; }
         .time { font-size: 0.65rem; color: rgba(255,255,255,0.6); text-align: right; margin-top: 2px; float: right; margin-left: 8px;}
         
-        /* Media */
         .bubble img, .bubble video { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; cursor: pointer; }
         .file-link { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; text-decoration: none; color: white; margin-top: 5px; }
 
-        /* Footer */
         .footer { background: var(--bg-panel); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
         .footer input { flex: 1; padding: 10px 15px; border-radius: 20px; border: none; background: #2a3942; color: white; font-size: 1rem;}
         .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.4rem; cursor: pointer; padding: 5px; }
@@ -155,7 +148,6 @@
 
             if(!username || !roomCode || !groupName) return alert("All fields are required!");
             
-            // Save Credentials
             localStorage.setItem("vas_user", username);
             localStorage.setItem("vas_code", roomCode);
             localStorage.setItem("vas_group", groupName);
@@ -181,17 +173,16 @@
                 document.getElementById('app-container').style.display = 'flex';
                 document.getElementById('header-title').innerText = groupName;
 
-                // Subscribe Public (Live Messages + User Count)
                 stompClient.subscribe('/topic/public', onMessageReceived);
-                // Subscribe Private (History + Whisper)
                 stompClient.subscribe('/topic/history/' + myId, onMessageReceived);
                 
-                // Send Join (Include myId for history routing)
+                // FIXED: Added groupName here
                 stompClient.send("/app/chat.addUser", {}, JSON.stringify({ 
                     from: username, 
                     text: encrypt("JOIN"), 
                     type: 'JOIN', 
-                    senderId: myId 
+                    senderId: myId,
+                    groupName: groupName // <--- IMPORTANT
                 }));
             }, (err) => {
                 console.error(err);
@@ -201,8 +192,9 @@
         // --- 3. TYPING Logic ---
         function notifyTyping() {
             if(stompClient) {
+                // FIXED: Added groupName here too (optional but good)
                 stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
-                    from: username, type: 'TYPING'
+                    from: username, type: 'TYPING', groupName: groupName
                 }));
             }
         }
@@ -238,11 +230,13 @@
 
         function sendPayload(content) {
             if(stompClient) {
+                // FIXED: Added groupName here!
                 stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
                     from: username, 
                     text: encrypt(content), 
                     type: 'CHAT', 
-                    senderId: myId
+                    senderId: myId,
+                    groupName: groupName // <--- CRITICAL FIX
                 }));
             }
         }
@@ -251,6 +245,9 @@
         function onMessageReceived(payload) {
             const msg = JSON.parse(payload.body);
             const chatArea = document.getElementById('chat-area');
+
+            // Filter: Only process messages for MY group
+            if(msg.groupName && msg.groupName !== groupName) return;
 
             // A. Update Online Count
             if (msg.onlineCount > 0) {
@@ -290,7 +287,7 @@
                 else if (content.startsWith("data:video")) bubbleContent = `<video src="${content}" controls></video>`;
                 else if (content.startsWith("data:")) bubbleContent = `<a href="${content}" download="file" class="file-link"><i class="fas fa-file"></i> File</a>`;
 
-                // USE SERVER TIME if available, else fallback to client time
+                // USE SERVER TIME
                 const displayTime = msg.time || new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
                 div.className = `message-row ${isMe ? 'me' : 'other'}`;
@@ -310,7 +307,8 @@
         function handleEnter(e) { if(e.key === 'Enter') sendMessage(); }
         function clearChat() { 
             if(confirm("Clear chat history for everyone?")) {
-                stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({ from: username, type: 'CLEAR' })); 
+                // FIXED: Added groupName here
+                stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({ from: username, type: 'CLEAR', groupName: groupName })); 
             }
         }
         function openMedia(src) { const w = window.open(""); w.document.write('<body style="background:black;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="'+src+'" style="max-width:100%"></body>'); }
