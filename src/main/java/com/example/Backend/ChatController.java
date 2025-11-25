@@ -15,9 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatRepository chatRepository; // <--- MongoDB Connection
+    private final ChatRepository chatRepository;
 
-    // RAM: Only for counting who is online right now
+    private static final String SERVER_PIN = "1234"; 
     private static final Set<String> activeSessions = ConcurrentHashMap.newKeySet();
 
     public ChatController(SimpMessagingTemplate messagingTemplate, ChatRepository chatRepository) {
@@ -25,42 +25,33 @@ public class ChatController {
         this.chatRepository = chatRepository;
     }
 
-    // Helper methods called by WebSocketEventListener
     public void removeSession(String sessionId) { activeSessions.remove(sessionId); }
     public int getActiveUserCount() { return activeSessions.size(); }
 
     @MessageMapping("/chat.addUser")
     public void addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        // 1. Track Online User
-        headerAccessor.getSessionAttributes().put("username", chatMessage.getFrom());
         activeSessions.add(headerAccessor.getSessionId());
+        headerAccessor.getSessionAttributes().put("username", chatMessage.getFrom());
 
-        // 2. Broadcast "User Joined" + Current Count
         chatMessage.setTime(getCurrentTime());
         chatMessage.setType(ChatMessage.MessageType.JOIN);
         chatMessage.setOnlineCount(activeSessions.size());
+        
         messagingTemplate.convertAndSend("/topic/public", chatMessage);
 
-        // 3. LOAD HISTORY FROM MONGODB
         if (chatMessage.getGroupName() != null) {
-            // Fetch from DB
             List<ChatMessage> history = chatRepository.findByGroupName(chatMessage.getGroupName());
-            
-            // Send to the specific user only (Private Channel)
             String uniqueUserChannel = "/topic/history/" + chatMessage.getSenderId();
-            
             for (ChatMessage oldMsg : history) {
-                // We send it as 'HISTORY' type so frontend handles it correctly
-                // We create a copy to ensure we don't mess up the DB object
                 ChatMessage historyMsg = new ChatMessage();
                 historyMsg.setFrom(oldMsg.getFrom());
                 historyMsg.setText(oldMsg.getText());
                 historyMsg.setTime(oldMsg.getTime());
-                historyMsg.setType(ChatMessage.MessageType.HISTORY); 
+                // Preserve the original type (IMAGE/VOICE/CHAT) so it renders correctly
+                historyMsg.setType(oldMsg.getType()); 
                 historyMsg.setReactions(oldMsg.getReactions());
                 historyMsg.setMessageId(oldMsg.getMessageId());
                 historyMsg.setRead(oldMsg.isRead());
-                
                 messagingTemplate.convertAndSend(uniqueUserChannel, historyMsg);
             }
         }
@@ -69,45 +60,36 @@ public class ChatController {
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessage chatMessage) {
         chatMessage.setTime(getCurrentTime());
+        chatMessage.setOnlineCount(activeSessions.size());
 
-        // --- A. HANDLE DELETE (CLEAR) ---
         if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
-            if(chatMessage.getGroupName() != null) {
-                // Find all messages in this group
-                List<ChatMessage> msgsToDelete = chatRepository.findByGroupName(chatMessage.getGroupName());
-                // Delete them from MongoDB
-                chatRepository.deleteAll(msgsToDelete);
+            if (SERVER_PIN.equals(chatMessage.getText())) {
+                if(chatMessage.getGroupName() != null) {
+                    List<ChatMessage> msgs = chatRepository.findByGroupName(chatMessage.getGroupName());
+                    chatRepository.deleteAll(msgs);
+                }
+                messagingTemplate.convertAndSend("/topic/public", chatMessage);
             }
-            // Tell frontend to clear screen
-            messagingTemplate.convertAndSend("/topic/public", chatMessage);
             return;
         } 
         
-        // --- B. HANDLE CHAT / VOICE ---
-        if (chatMessage.getType() == ChatMessage.MessageType.CHAT || chatMessage.getType() == ChatMessage.MessageType.VOICE) {
-            // Save to MongoDB
-            if(chatMessage.getGroupName() != null) {
-                chatRepository.save(chatMessage);
-            }
+        // SAVE: Chat, Voice, AND IMAGES
+        if (chatMessage.getType() == ChatMessage.MessageType.CHAT || 
+            chatMessage.getType() == ChatMessage.MessageType.VOICE || 
+            chatMessage.getType() == ChatMessage.MessageType.IMAGE) {
+            
+            if(chatMessage.getGroupName() != null) chatRepository.save(chatMessage);
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
-        
-        // --- C. HANDLE REACTIONS ---
         else if (chatMessage.getType() == ChatMessage.MessageType.REACTION) {
-            // Find message in MongoDB
             ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
             if (existing != null) {
-                // Update DB
                 existing.getReactions().put(chatMessage.getFrom(), chatMessage.getText());
                 chatRepository.save(existing);
-                
-                // Broadcast update
                 chatMessage.setReactions(existing.getReactions());
                 messagingTemplate.convertAndSend("/topic/public", chatMessage);
             }
         }
-        
-        // --- D. HANDLE READ RECEIPTS ---
         else if (chatMessage.getType() == ChatMessage.MessageType.READ) {
              ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
              if(existing != null) { 
@@ -116,8 +98,6 @@ public class ChatController {
                  messagingTemplate.convertAndSend("/topic/public", chatMessage);
              }
         }
-        
-        // --- E. TYPING / CALLS (Don't Save to DB) ---
         else {
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }

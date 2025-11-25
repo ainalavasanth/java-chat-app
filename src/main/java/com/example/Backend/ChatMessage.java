@@ -12,7 +12,7 @@ public class ChatMessage {
     private String id;
     private String messageId;
     private String from;
-    private String text; // Stores Text OR Base64 Audio Data OR WebRTC Signal
+    private String text; 
     private String senderId;
     private String time;
     private String groupName;
@@ -21,14 +21,15 @@ public class ChatMessage {
     private MessageType type;
     private int onlineCount;
     
-    // For Calling (WebRTC)
+    // WebRTC Signaling fields
     private String candidate; 
     private String sdp; 
 
+    // ADDED "IMAGE" HERE 👇
     public enum MessageType { 
         CHAT, JOIN, LEAVE, HISTORY, CLEAR, TYPING, READ, REACTION, 
-        VOICE, // <--- New: Voice Note
-        offer, answer, candidate, hangup // <--- New: Calling Signals
+        VOICE, IMAGE, 
+        offer, answer, candidate, hangup 
     }
 
     // Getters & Setters
@@ -55,7 +56,6 @@ public class ChatMessage {
     public int getOnlineCount() { return onlineCount; }
     public void setOnlineCount(int onlineCount) { this.onlineCount = onlineCount; }
     
-    // WebRTC Getters/Setters
     public String getCandidate() { return candidate; }
     public void setCandidate(String candidate) { this.candidate = candidate; }
     public String getSdp() { return sdp; }
