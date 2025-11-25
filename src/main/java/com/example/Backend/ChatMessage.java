@@ -9,18 +9,15 @@ import java.util.Map;
 public class ChatMessage {
     
     @Id
-    private String id; // MongoDB ID
-    private String messageId; // Client-generated ID (Unique for tracking)
+    private String id;
+    private String messageId;
     private String from;
     private String text;
     private String senderId;
     private String time;
     private String groupName;
-    private boolean isRead; // For Blue Ticks
-    
-    // Stores reactions: Key = Username, Value = Emoji (e.g., "Bhavya" -> "❤️")
+    private boolean isRead;
     private Map<String, String> reactions = new HashMap<>();
-    
     private MessageType type;
     private int onlineCount;
 
