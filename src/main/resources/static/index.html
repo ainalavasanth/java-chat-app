@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VASApp</title>
+    <title>VASApp Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
@@ -14,298 +14,300 @@
         * { box-sizing: border-box; margin: 0; padding: 0; outline: none; font-family: Helvetica, Arial, sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
 
-        /* Login & App Structure */
+        /* Login */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .login-card { background: var(--bg-panel); padding: 2rem; border-radius: 15px; width: 90%; max-width: 350px; text-align: center; }
-        .logo-text { font-size: 2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px; display: block;}
-        .input-group label { font-size: 0.8rem; color: #8696a0; display:block; text-align:left; margin-bottom:5px;}
         .login-card input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #374045; background: #2a3942; color: white; }
-        .login-card button { width: 100%; padding: 12px; background: var(--primary); border: none; border-radius: 8px; color: black; font-weight: bold; cursor: pointer; }
+        .login-card button { width: 100%; padding: 12px; background: var(--primary); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
+        /* App */
         #app-container { display: none; flex: 1; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; width: 100%; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); position: relative; }
         .header { background: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
         .header-title { font-weight: bold; font-size: 1.1rem; }
-        .header-subtitle { font-size: 0.8rem; color: var(--primary); }
-        .icon-btn-head { background: none; border: none; color: #8696a0; font-size: 1.1rem; cursor: pointer; margin-left:10px;}
+        
+        .icon-btn-head { background: none; border: none; color: #8696a0; font-size: 1.2rem; cursor: pointer; margin-left: 15px; }
+        .icon-btn-head:hover { color: var(--primary); }
 
-        /* Chat Bubbles */
+        /* Chat Area */
         #chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
         .message-row { display: flex; width: 100%; position: relative; }
         .message-row.me { justify-content: flex-end; }
-        .bubble { max-width: 80%; padding: 6px 10px 20px 10px; border-radius: 10px; font-size: 0.95rem; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.2); min-width: 80px; cursor: pointer; } /* Added cursor pointer */
+        .bubble { max-width: 80%; padding: 6px 10px 20px 10px; border-radius: 10px; font-size: 0.95rem; position: relative; min-width: 80px; cursor: pointer; }
         .me .bubble { background-color: var(--outgoing); border-top-right-radius: 0; }
         .other .bubble { background-color: var(--incoming); border-top-left-radius: 0; }
         .sender { font-size: 0.7rem; color: #d69a43; font-weight: bold; display: block; margin-bottom: 3px; }
         
-        /* Ticks & Meta */
         .meta-info { position: absolute; bottom: 4px; right: 8px; display: flex; align-items: center; gap: 3px; font-size: 0.65rem; color: rgba(255,255,255,0.6); }
-        .ticks { font-size: 0.7rem; color: #8696a0; }
         .ticks.blue { color: #53bdeb; }
 
-        /* Reactions & Emoji */
-        .reaction-pill { position: absolute; bottom: -10px; right: 10px; background: #2a3942; border: 1px solid #0b141a; padding: 2px 5px; border-radius: 10px; font-size: 0.8rem; box-shadow: 0 1px 2px rgba(0,0,0,0.3); cursor: pointer; display:none;}
-        .reaction-pill.active { display: block; }
-        #emoji-picker { position: absolute; background: #2a3942; padding: 10px; border-radius: 20px; display: none; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 100; }
-        .emoji-opt { font-size: 1.5rem; cursor: pointer; transition: transform 0.2s; }
-        .emoji-opt:hover { transform: scale(1.2); }
-
-        /* Undo Popup Styling */
-        #undo-popup { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 20px; border-radius: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 15px; animation: slideUp 0.3s ease-out; z-index: 1000; }
-        @keyframes slideUp { from { bottom: 0; opacity: 0; } to { bottom: 80px; opacity: 1; } }
-        .undo-btn { background: #ffd700; color: #333; border: none; padding: 5px 12px; border-radius: 3px; font-weight: bold; cursor: pointer; }
+        /* Voice Note Audio Player */
+        audio { height: 30px; width: 200px; margin-top: 5px; }
 
         /* Footer */
         .footer { background: var(--bg-panel); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
         .footer input { flex: 1; padding: 10px 15px; border-radius: 20px; border: none; background: #2a3942; color: white; font-size: 1rem;}
         .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.4rem; cursor: pointer; padding: 5px; }
-        #send-btn { background: var(--primary); color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        #typing-indicator { position: absolute; bottom: 70px; left: 20px; background: rgba(32, 44, 51, 0.9); padding: 5px 10px; border-radius: 10px; font-size: 0.75rem; color: var(--primary); display: none; }
+        .mic-active { color: red !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        /* Call Modal */
+        #call-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; }
+        .call-avatar { width: 100px; height: 100px; background: #555; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 20px; }
+        .call-actions { display: flex; gap: 30px; }
+        .call-btn { width: 60px; height: 60px; border-radius: 50%; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+        .btn-accept { background: #00a884; }
+        .btn-reject { background: #ff4d4d; }
+        
+        /* Reaction & Emoji */
+        #emoji-picker { position: absolute; background: #2a3942; padding: 10px; border-radius: 20px; display: none; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 100; }
+        .reaction-pill { position: absolute; bottom: -10px; right: 10px; background: #2a3942; border: 1px solid #0b141a; padding: 2px 5px; border-radius: 10px; font-size: 0.8rem; display:none;}
+        .reaction-pill.active { display: block; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
         <div class="login-card">
-            <span class="logo-text">VASApp</span>
-            <div class="input-group"><label>Group</label><input type="text" id="group-in" placeholder="Family"></div>
-            <div class="input-group"><label>Name</label><input type="text" id="username-in" placeholder="You"></div>
-            <div class="input-group"><label>Pin</label><input type="password" id="code-in" placeholder="****"></div>
-            <button onclick="attemptLogin()">Enter</button>
+            <h2 style="color:var(--primary); margin-bottom:20px;">VASApp</h2>
+            <input type="text" id="group-in" placeholder="Group Name (e.g. Family)">
+            <input type="text" id="username-in" placeholder="Your Name">
+            <input type="password" id="code-in" placeholder="Group PIN">
+            <button onclick="attemptLogin()">Start Chatting</button>
         </div>
     </div>
 
     <div id="app-container">
         <div class="header">
-            <div><div class="header-title" id="header-title">Group</div><div class="header-subtitle" id="status-text">...</div></div>
-            <div><button class="icon-btn-head" onclick="clearChat()"><i class="fas fa-trash"></i></button><button class="icon-btn-head" onclick="logout()"><i class="fas fa-sign-out-alt"></i></button></div>
+            <div><div class="header-title" id="header-title">Group</div><div style="font-size:0.8rem; color:var(--primary)" id="status-text">...</div></div>
+            <div>
+                <button class="icon-btn-head" onclick="startCall()"><i class="fas fa-phone"></i></button>
+                <button class="icon-btn-head" onclick="clearChat()"><i class="fas fa-trash"></i></button>
+                <button class="icon-btn-head" onclick="location.reload()"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
         </div>
+        
         <div id="chat-area"></div>
+        
         <div id="emoji-picker">
-            <span class="emoji-opt" onclick="sendReaction('❤️')">❤️</span>
-            <span class="emoji-opt" onclick="sendReaction('😂')">😂</span>
-            <span class="emoji-opt" onclick="sendReaction('😮')">😮</span>
-            <span class="emoji-opt" onclick="sendReaction('😢')">😢</span>
-            <span class="emoji-opt" onclick="sendReaction('👍')">👍</span>
+            <span style="font-size:1.5rem; cursor:pointer;" onclick="sendReaction('❤️')">❤️</span>
+            <span style="font-size:1.5rem; cursor:pointer;" onclick="sendReaction('😂')">😂</span>
+            <span style="font-size:1.5rem; cursor:pointer;" onclick="sendReaction('👍')">👍</span>
         </div>
-        <div id="typing-indicator">Typing...</div>
+
         <div class="footer">
-            <input type="file" id="file-input" style="display:none;" onchange="handleFileSelect(event)">
             <button class="icon-btn" onclick="document.getElementById('file-input').click()"><i class="fas fa-paperclip"></i></button>
-            <input type="text" id="message-input" placeholder="Message" onkeypress="handleEnter(event)" oninput="notifyTyping()">
-            <button id="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            <input type="text" id="message-input" placeholder="Type a message" onkeypress="handleEnter(event)">
+            <button class="icon-btn" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()"><i class="fas fa-microphone"></i></button>
+            <button class="icon-btn" style="background:var(--primary); color:black; border-radius:50%; width:40px; height:40px;" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
         </div>
+        <input type="file" id="file-input" style="display:none;" onchange="handleFileSelect(event)">
+    </div>
+
+    <div id="call-modal">
+        <div class="call-avatar"><i class="fas fa-user"></i></div>
+        <h3 id="call-status" style="margin-bottom:20px;">Incoming Call...</h3>
+        <div class="call-actions">
+            <button class="call-btn btn-reject" onclick="endCall()"><i class="fas fa-phone-slash"></i></button>
+            <button class="call-btn btn-accept" id="accept-btn" onclick="acceptCall()"><i class="fas fa-phone"></i></button>
+        </div>
+        <audio id="remote-audio" autoplay></audio>
     </div>
 
     <script>
         let stompClient = null;
-        let username = null;
-        let roomCode = null;
-        let groupName = null;
+        let username, roomCode, groupName;
         const myId = "u_" + Date.now();
         let selectedMsgId = null;
         
-        // --- NEW VARIABLES ---
-        const GROUP_PIN = "1234";
-        let deleteTimeout;
-        let savedChatHTML = "";
+        // --- VOICE RECORDING VARS ---
+        let mediaRecorder;
+        let audioChunks = [];
 
-        window.onload = function() {
-            if(localStorage.getItem("vas_user")) {
-                username = localStorage.getItem("vas_user");
-                roomCode = localStorage.getItem("vas_code");
-                groupName = localStorage.getItem("vas_group");
-                connect();
-            }
-        };
+        // --- WEBRTC CALLING VARS ---
+        let peerConnection;
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        let localStream;
 
+        // --- LOGIN ---
         function attemptLogin() {
             username = document.getElementById('username-in').value.trim();
             roomCode = document.getElementById('code-in').value.trim();
             groupName = document.getElementById('group-in').value.trim();
-            if(!username || !roomCode || !groupName) return alert("Required!");
-            localStorage.setItem("vas_user", username);
-            localStorage.setItem("vas_code", roomCode);
-            localStorage.setItem("vas_group", groupName);
+            if(!username || !roomCode || !groupName) return alert("All fields required");
             connect();
         }
-
-        function logout() { localStorage.clear(); location.reload(); }
 
         function connect() {
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; 
+            stompClient.debug = null;
             stompClient.connect({}, () => {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 document.getElementById('header-title').innerText = groupName;
+                
                 stompClient.subscribe('/topic/public', onMessageReceived);
                 stompClient.subscribe('/topic/history/' + myId, onMessageReceived);
-                stompClient.send("/app/chat.addUser", {}, JSON.stringify({ from: username, text: encrypt("JOIN"), type: 'JOIN', senderId: myId, groupName: groupName }));
-            }, () => { alert("Error connecting"); location.reload(); });
+                
+                sendPayload("JOINED", 'JOIN');
+            }, (err) => alert("Connection Error"));
         }
 
-        // --- Core Functions ---
-        function uuid() { return 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
-        function encrypt(d) { return CryptoJS.AES.encrypt(d, roomCode).toString(); }
-        function decrypt(d) { try { return CryptoJS.AES.decrypt(d, roomCode).toString(CryptoJS.enc.Utf8) || null; } catch(e){return null;} }
-
-        function sendMessage() {
-            const input = document.getElementById('message-input');
-            const text = input.value.trim();
-            if(text) {
-                sendPayload(text, 'CHAT');
-                input.value = '';
-            }
+        function sendPayload(content, type, extra = {}) {
+            const msg = {
+                messageId: uuid(),
+                from: username,
+                text: type === 'VOICE' || type === 'offer' || type === 'answer' || type === 'candidate' ? content : encrypt(content),
+                type: type,
+                senderId: myId,
+                groupName: groupName,
+                ...extra
+            };
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(msg));
         }
 
-        function sendPayload(content, type) {
-            const msgId = uuid();
-            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
-                messageId: msgId, from: username, text: encrypt(content), type: type, senderId: myId, groupName: groupName
-            }));
+        // --- 1. VOICE NOTES ---
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = () => sendPayload(reader.result, 'VOICE'); // Send Base64
+                };
+                mediaRecorder.start();
+                document.getElementById('mic-btn').classList.add('mic-active');
+            } catch(e) { alert("Mic access denied"); }
+        }
+        function stopRecording() {
+            if(mediaRecorder) mediaRecorder.stop();
+            document.getElementById('mic-btn').classList.remove('mic-active');
         }
 
-        function notifyTyping() { stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({ from: username, type: 'TYPING', groupName: groupName })); }
-
-        // --- NEW FEATURE: COPY TO CLIPBOARD ---
-        function copyText(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Copied to clipboard!");
-            });
-        }
-
-        // --- NEW FEATURE: SAFE DELETE & UNDO ---
-        function clearChat() {
-            let pin = prompt("⚠️ DELETE WARNING\nEnter Group PIN:");
+        // --- 2. WEBRTC CALLING ---
+        async function startCall() {
+            document.getElementById('call-modal').style.display = 'flex';
+            document.getElementById('call-status').innerText = "Calling group...";
+            document.getElementById('accept-btn').style.display = 'none';
             
-            if (pin === GROUP_PIN) {
-                // 1. Save Backup
-                const chatArea = document.getElementById('chat-area');
-                savedChatHTML = chatArea.innerHTML;
-                
-                // 2. Clear Visuals (Fake Delete)
-                chatArea.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">Chat Cleared (Waiting...)</div>';
-                
-                // 3. Create Undo Popup
-                const popup = document.createElement("div");
-                popup.id = "undo-popup";
-                popup.innerHTML = `Chat Deleted. <button onclick="undoDelete()" class="undo-btn">UNDO (5s)</button>`;
-                document.getElementById('app-container').appendChild(popup);
-                
-                // 4. Start 5s Timer
-                deleteTimeout = setTimeout(() => {
-                    // Time's up! Send REAL delete to server
-                    stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({ from: username, type: 'CLEAR', groupName: groupName }));
-                    if(document.getElementById("undo-popup")) document.getElementById("undo-popup").remove();
-                }, 5000);
-
-            } else {
-                alert("❌ Incorrect PIN!");
-            }
+            await initWebRTC();
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            sendPayload(JSON.stringify(offer), 'offer');
         }
 
-        function undoDelete() {
-            // Restore UI
-            document.getElementById('chat-area').innerHTML = savedChatHTML;
-            // Stop Server Command
-            clearTimeout(deleteTimeout);
-            // Remove Popup
-            if(document.getElementById("undo-popup")) document.getElementById("undo-popup").remove();
-            alert("Chat Restored!");
+        async function initWebRTC() {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            peerConnection = new RTCPeerConnection(rtcConfig);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            
+            peerConnection.ontrack = event => {
+                document.getElementById('remote-audio').srcObject = event.streams[0];
+            };
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) sendPayload(JSON.stringify(event.candidate), 'candidate');
+            };
         }
 
-        // --- Reactions & Read Status ---
-        function showEmojiPicker(event, msgId) {
-            selectedMsgId = msgId;
-            const picker = document.getElementById('emoji-picker');
-            picker.style.display = 'flex';
-            picker.style.top = (event.clientY - 50) + 'px';
-            picker.style.left = event.clientX + 'px';
-            event.stopPropagation();
+        async function acceptCall() {
+            document.getElementById('call-status').innerText = "Connecting...";
+            document.getElementById('accept-btn').style.display = 'none';
+            await initWebRTC(); // Get my mic
+            // Answer logic is handled in onMessageReceived
         }
 
-        function sendReaction(emoji) {
-            document.getElementById('emoji-picker').style.display = 'none';
-            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
-                messageId: selectedMsgId, from: username, text: emoji, type: 'REACTION', groupName: groupName
-            }));
+        function endCall() {
+            if(peerConnection) peerConnection.close();
+            if(localStream) localStream.getTracks().forEach(track => track.stop());
+            document.getElementById('call-modal').style.display = 'none';
+            sendPayload("HANGUP", 'hangup');
         }
-        
-        document.onclick = function() { document.getElementById('emoji-picker').style.display = 'none'; };
 
-        function onMessageReceived(payload) {
+        // --- 3. MESSAGE HANDLING ---
+        async function onMessageReceived(payload) {
             const msg = JSON.parse(payload.body);
             if(msg.groupName && msg.groupName !== groupName) return;
 
-            if (msg.onlineCount) document.getElementById('status-text').innerText = msg.onlineCount + " Online";
-            if (msg.type === 'TYPING' && msg.from !== username) {
-                document.getElementById('typing-indicator').style.display = 'block';
-                setTimeout(()=> document.getElementById('typing-indicator').style.display = 'none', 2000);
+            // HANDLE CALLING SIGNALS
+            if (msg.type === 'offer' && msg.from !== username) {
+                document.getElementById('call-modal').style.display = 'flex';
+                document.getElementById('call-status').innerText = msg.from + " is calling...";
+                document.getElementById('accept-btn').style.display = 'block';
+                // Store offer to accept later
+                window.pendingOffer = JSON.parse(msg.text);
                 return;
             }
+            if (msg.type === 'answer' && msg.from !== username) {
+                if(peerConnection) await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.text)));
+                document.getElementById('call-status').innerText = "Connected";
+                return;
+            }
+            if (msg.type === 'candidate' && msg.from !== username) {
+                if(peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(msg.text)));
+                return;
+            }
+            if (msg.type === 'hangup') {
+                document.getElementById('call-modal').style.display = 'none';
+                if(peerConnection) peerConnection.close();
+                return;
+            }
+
+            // HANDLE NORMAL MESSAGES
             if (msg.type === 'REACTION') {
                 const pill = document.getElementById('react-' + msg.messageId);
                 if (pill) { pill.innerText = msg.text; pill.classList.add('active'); }
                 return;
             }
-            if (msg.type === 'READ') {
-                const ticks = document.getElementById('tick-' + msg.messageId);
-                if (ticks) ticks.classList.add('blue');
-                return;
-            }
-            if (msg.type === 'CLEAR') {
-                document.getElementById('chat-area').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">Chat Cleared for Everyone</div>';
-                // Remove undo popup if it exists (someone else forced delete)
-                if(document.getElementById("undo-popup")) document.getElementById("undo-popup").remove();
-                return;
-            }
-
-            const content = decrypt(msg.text);
-            if(content === null) return;
-
-            if (msg.from !== username && msg.type === 'CHAT') {
-                stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({ messageId: msg.messageId, type: 'READ', groupName: groupName }));
-            }
-            renderMessage(msg, content);
+            
+            renderMessage(msg);
         }
 
-        function renderMessage(msg, content) {
+        // Call Accept Logic inside Render/Handler
+        window.acceptCall = async function() {
+            document.getElementById('call-status').innerText = "Connecting...";
+            document.getElementById('accept-btn').style.display = 'none';
+            await initWebRTC();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(window.pendingOffer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            sendPayload(JSON.stringify(answer), 'answer');
+        }
+
+        function renderMessage(msg) {
+            if(document.getElementById('msg-' + msg.messageId)) return;
             const chatArea = document.getElementById('chat-area');
             const div = document.createElement('div');
-            
-            if(msg.type === 'JOIN' || msg.type === 'LEAVE') {
-                if(msg.from !== username) {
-                    div.innerHTML = `<div style="text-align:center; margin:10px;"><span style="background:#1c272d; padding:5px 10px; border-radius:10px; font-size:0.75rem; color:#8696a0;">${msg.from} ${msg.type}ed</span></div>`;
-                    chatArea.appendChild(div);
-                }
-                return;
-            }
-
-            if(document.getElementById('msg-' + msg.messageId)) return;
-
             const isMe = msg.from === username;
-            let bubbleHtml = `<span>${content}</span>`;
-            if (content.startsWith("data:image")) bubbleHtml = `<img src="${content}">`;
             
-            const time = msg.time || new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            const tickClass = msg.read ? 'ticks blue' : 'ticks';
-            
+            let content = "";
+            if(msg.type === 'VOICE') {
+                content = `<audio controls src="${msg.text}"></audio>`;
+            } else if (msg.type === 'CHAT') {
+                content = `<span>${decrypt(msg.text)}</span>`;
+                if(msg.text.startsWith('data:image')) content = `<img src="${msg.text}" style="max-width:100%">`;
+            } else return; // Ignore others
+
+            // CORRECT TIME CALCULATION (Server Time -> Local Time)
+            // If server sends "14:30", we trust it. If you want conversion:
+            // let date = new Date(); date.setHours(msg.time.split(':')[0]); 
+            const localTime = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
             let reactHtml = (msg.reactions && Object.keys(msg.reactions).length > 0) 
                 ? `<div id="react-${msg.messageId}" class="reaction-pill active">${Object.values(msg.reactions).pop()}</div>` 
                 : `<div id="react-${msg.messageId}" class="reaction-pill"></div>`;
 
             div.className = `message-row ${isMe ? 'me' : 'other'}`;
-            // ADDED onclick="copyText" HERE for Copy Feature
             div.innerHTML = `
-                <div class="bubble" id="msg-${msg.messageId}" 
-                     onclick="copyText('${content.replace(/'/g, "\\'")}')" 
-                     ondblclick="showEmojiPicker(event, '${msg.messageId}')">
+                <div class="bubble" id="msg-${msg.messageId}" ondblclick="showEmojiPicker(event, '${msg.messageId}')">
                     <span class="sender">${msg.from}</span>
-                    ${bubbleHtml}
+                    ${content}
                     <div class="meta-info">
-                        <span>${time}</span>
-                        ${isMe ? `<span id="tick-${msg.messageId}" class="${tickClass}"><i class="fas fa-check-double"></i></span>` : ''}
+                        <span>${localTime}</span>
+                        ${isMe ? '<i class="fas fa-check-double ticks"></i>' : ''}
                     </div>
                     ${reactHtml}
                 </div>
@@ -314,8 +316,21 @@
             chatArea.scrollTop = chatArea.scrollHeight;
         }
 
-        function handleFileSelect(e) { const r = new FileReader(); r.onload=function(ev){sendPayload(ev.target.result, 'CHAT');}; r.readAsDataURL(e.target.files[0]); }
+        // --- UTILS ---
+        function uuid() { return 'msg_' + Date.now(); }
+        function encrypt(d) { return CryptoJS.AES.encrypt(d, roomCode).toString(); }
+        function decrypt(d) { try { return CryptoJS.AES.decrypt(d, roomCode).toString(CryptoJS.enc.Utf8); } catch(e){return "";} }
+        function sendMessage() {
+            const txt = document.getElementById('message-input').value;
+            if(txt) { sendPayload(txt, 'CHAT'); document.getElementById('message-input').value = ""; }
+        }
         function handleEnter(e) { if(e.key === 'Enter') sendMessage(); }
+        function showEmojiPicker(e, id) { selectedMsgId = id; document.getElementById('emoji-picker').style.top = (e.clientY-50)+'px'; document.getElementById('emoji-picker').style.left = e.clientX+'px'; document.getElementById('emoji-picker').style.display='flex'; e.stopPropagation(); }
+        function sendReaction(e) { document.getElementById('emoji-picker').style.display='none'; sendPayload(e, 'REACTION', {messageId: selectedMsgId}); }
+        document.onclick = () => document.getElementById('emoji-picker').style.display='none';
+        function handleFileSelect(e) { const r = new FileReader(); r.onload=ev=>sendPayload(ev.target.result,'CHAT'); r.readAsDataURL(e.target.files[0]); }
+        function clearChat() { if(prompt("PIN?") === "1234") sendPayload("CLEAR", "CLEAR"); }
+
     </script>
 </body>
 </html>

@@ -12,7 +12,7 @@ public class ChatMessage {
     private String id;
     private String messageId;
     private String from;
-    private String text;
+    private String text; // Stores Text OR Base64 Audio Data OR WebRTC Signal
     private String senderId;
     private String time;
     private String groupName;
@@ -20,8 +20,16 @@ public class ChatMessage {
     private Map<String, String> reactions = new HashMap<>();
     private MessageType type;
     private int onlineCount;
+    
+    // For Calling (WebRTC)
+    private String candidate; 
+    private String sdp; 
 
-    public enum MessageType { CHAT, JOIN, LEAVE, HISTORY, CLEAR, TYPING, READ, REACTION }
+    public enum MessageType { 
+        CHAT, JOIN, LEAVE, HISTORY, CLEAR, TYPING, READ, REACTION, 
+        VOICE, // <--- New: Voice Note
+        offer, answer, candidate, hangup // <--- New: Calling Signals
+    }
 
     // Getters & Setters
     public String getId() { return id; }
@@ -46,4 +54,10 @@ public class ChatMessage {
     public void setType(MessageType type) { this.type = type; }
     public int getOnlineCount() { return onlineCount; }
     public void setOnlineCount(int onlineCount) { this.onlineCount = onlineCount; }
+    
+    // WebRTC Getters/Setters
+    public String getCandidate() { return candidate; }
+    public void setCandidate(String candidate) { this.candidate = candidate; }
+    public String getSdp() { return sdp; }
+    public void setSdp(String sdp) { this.sdp = sdp; }
 }
