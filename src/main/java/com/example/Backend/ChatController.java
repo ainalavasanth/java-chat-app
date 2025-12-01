@@ -15,9 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatRepository chatRepository; // Must have this!
+    private final ChatRepository chatRepository;
 
-    // RAM is ONLY for user count, NOT for messages
+    // RAM is ONLY for counting online users. Messages go to DB.
     private static final Set<String> activeSessions = ConcurrentHashMap.newKeySet();
 
     public ChatController(SimpMessagingTemplate messagingTemplate, ChatRepository chatRepository) {
@@ -25,7 +25,6 @@ public class ChatController {
         this.chatRepository = chatRepository;
     }
 
-    // Helper methods
     public void removeSession(String sessionId) { activeSessions.remove(sessionId); }
     public int getActiveUserCount() { return activeSessions.size(); }
 
@@ -41,15 +40,20 @@ public class ChatController {
         chatMessage.setOnlineCount(activeSessions.size());
         messagingTemplate.convertAndSend("/topic/public", chatMessage);
 
-        // 3. LOAD HISTORY (Crucial Step)
+        // 3. LOAD HISTORY FROM MONGODB (Crucial Step)
         if (chatMessage.getGroupName() != null) {
-            System.out.println("Loading history for group: " + chatMessage.getGroupName()); // Debug Log
+            System.out.println("📥 Fetching history for group: " + chatMessage.getGroupName());
             
             List<ChatMessage> history = chatRepository.findByGroupName(chatMessage.getGroupName());
             
+            if (history.isEmpty()) {
+                System.out.println("⚠️ No history found for this group in MongoDB.");
+            }
+
             String uniqueUserChannel = "/topic/history/" + chatMessage.getSenderId();
             
             for (ChatMessage oldMsg : history) {
+                // Send as HISTORY type so it loads quietly
                 ChatMessage historyMsg = new ChatMessage();
                 historyMsg.setMessageId(oldMsg.getMessageId());
                 historyMsg.setFrom(oldMsg.getFrom());
@@ -58,8 +62,11 @@ public class ChatController {
                 historyMsg.setType(ChatMessage.MessageType.HISTORY); 
                 historyMsg.setReactions(oldMsg.getReactions());
                 historyMsg.setRead(oldMsg.isRead());
+                // Preserve image types
+                if (oldMsg.getType() == ChatMessage.MessageType.IMAGE || oldMsg.getType() == ChatMessage.MessageType.VOICE) {
+                    historyMsg.setType(oldMsg.getType()); 
+                }
                 
-                // Send directly to the user
                 messagingTemplate.convertAndSend(uniqueUserChannel, historyMsg);
             }
         }
@@ -70,34 +77,51 @@ public class ChatController {
         chatMessage.setTime(getCurrentTime());
         chatMessage.setOnlineCount(activeSessions.size());
 
-        // Debug Log
-        System.out.println("Received message type: " + chatMessage.getType() + " for group: " + chatMessage.getGroupName());
-
-        // SAVE LOGIC
+        // A. DELETE HISTORY
+        if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
+            if(chatMessage.getGroupName() != null) {
+                List<ChatMessage> msgs = chatRepository.findByGroupName(chatMessage.getGroupName());
+                chatRepository.deleteAll(msgs);
+                System.out.println("🗑️ Deleted all messages for group: " + chatMessage.getGroupName());
+            }
+            messagingTemplate.convertAndSend("/topic/public", chatMessage);
+            return;
+        } 
+        
+        // B. SAVE MESSAGES (Text, Voice, Images)
         if (chatMessage.getType() == ChatMessage.MessageType.CHAT || 
             chatMessage.getType() == ChatMessage.MessageType.VOICE || 
             chatMessage.getType() == ChatMessage.MessageType.IMAGE) {
             
-            // CRITICAL: Only save if Group Name exists
             if(chatMessage.getGroupName() != null) {
                 chatRepository.save(chatMessage);
-                System.out.println("✅ Saved to MongoDB: " + chatMessage.getText());
+                System.out.println("💾 Saved to MongoDB: " + chatMessage.getType());
             } else {
-                System.out.println("❌ Error: Group Name is NULL. Message not saved.");
+                System.out.println("❌ ERROR: Message has no Group Name. Not saving.");
             }
             
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
-        else if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
-            if(chatMessage.getGroupName() != null) {
-                List<ChatMessage> msgs = chatRepository.findByGroupName(chatMessage.getGroupName());
-                chatRepository.deleteAll(msgs);
-                System.out.println("🗑️ History Deleted for group: " + chatMessage.getGroupName());
+        // C. REACTIONS & READ STATUS (Update DB)
+        else if (chatMessage.getType() == ChatMessage.MessageType.REACTION) {
+            ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
+            if (existing != null) {
+                existing.getReactions().put(chatMessage.getFrom(), chatMessage.getText());
+                chatRepository.save(existing);
+                chatMessage.setReactions(existing.getReactions());
+                messagingTemplate.convertAndSend("/topic/public", chatMessage);
             }
-            messagingTemplate.convertAndSend("/topic/public", chatMessage);
+        }
+        else if (chatMessage.getType() == ChatMessage.MessageType.READ) {
+             ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
+             if(existing != null) { 
+                 existing.setRead(true); 
+                 chatRepository.save(existing); 
+                 messagingTemplate.convertAndSend("/topic/public", chatMessage);
+             }
         }
         else {
-            // Other types (Typing, Calls, etc.) - Just forward, don't save
+            // Typing, Calls, etc. (Pass through)
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
     }

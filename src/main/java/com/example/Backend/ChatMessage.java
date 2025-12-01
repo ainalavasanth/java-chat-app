@@ -5,18 +5,17 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.util.HashMap;
 import java.util.Map;
 
-// 👇 THIS LINE IS REQUIRED FOR SAVING
-@Document(collection = "messages") 
+@Document(collection = "messages")
 public class ChatMessage {
     
     @Id
     private String id;
     private String messageId;
     private String from;
-    private String text;
+    private String text; 
     private String senderId;
     private String time;
-    private String groupName; // If this is null, it won't save correctly!
+    private String groupName;
     private boolean isRead;
     private Map<String, String> reactions = new HashMap<>();
     private MessageType type;
@@ -32,8 +31,7 @@ public class ChatMessage {
         offer, answer, candidate, hangup 
     }
 
-    // --- GETTERS AND SETTERS ---
-    // (Ensure you have ALL of them generated. If you are missing setGroupName, it will fail)
+    // Getters & Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getMessageId() { return messageId; }
