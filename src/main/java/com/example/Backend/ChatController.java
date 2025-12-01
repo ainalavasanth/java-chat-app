@@ -16,8 +16,6 @@ public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatRepository chatRepository;
-
-    // RAM is ONLY for counting online users. Messages go to DB.
     private static final Set<String> activeSessions = ConcurrentHashMap.newKeySet();
 
     public ChatController(SimpMessagingTemplate messagingTemplate, ChatRepository chatRepository) {
@@ -30,30 +28,26 @@ public class ChatController {
 
     @MessageMapping("/chat.addUser")
     public void addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        // 1. Session Tracking
         headerAccessor.getSessionAttributes().put("username", chatMessage.getFrom());
         activeSessions.add(headerAccessor.getSessionId());
 
-        // 2. Broadcast Join
         chatMessage.setTime(getCurrentTime());
         chatMessage.setType(ChatMessage.MessageType.JOIN);
         chatMessage.setOnlineCount(activeSessions.size());
         messagingTemplate.convertAndSend("/topic/public", chatMessage);
 
-        // 3. LOAD HISTORY FROM MONGODB (Crucial Step)
+        // --- DEBUG LOGS FOR HISTORY ---
+        System.out.println("👉 USER JOINED: " + chatMessage.getFrom());
+        System.out.println("👉 REQUESTING HISTORY FOR GROUP: " + chatMessage.getGroupName());
+
         if (chatMessage.getGroupName() != null) {
-            System.out.println("📥 Fetching history for group: " + chatMessage.getGroupName());
-            
             List<ChatMessage> history = chatRepository.findByGroupName(chatMessage.getGroupName());
             
-            if (history.isEmpty()) {
-                System.out.println("⚠️ No history found for this group in MongoDB.");
-            }
+            System.out.println("✅ FOUND " + history.size() + " MESSAGES IN DATABASE.");
 
             String uniqueUserChannel = "/topic/history/" + chatMessage.getSenderId();
             
             for (ChatMessage oldMsg : history) {
-                // Send as HISTORY type so it loads quietly
                 ChatMessage historyMsg = new ChatMessage();
                 historyMsg.setMessageId(oldMsg.getMessageId());
                 historyMsg.setFrom(oldMsg.getFrom());
@@ -62,13 +56,16 @@ public class ChatController {
                 historyMsg.setType(ChatMessage.MessageType.HISTORY); 
                 historyMsg.setReactions(oldMsg.getReactions());
                 historyMsg.setRead(oldMsg.isRead());
-                // Preserve image types
-                if (oldMsg.getType() == ChatMessage.MessageType.IMAGE || oldMsg.getType() == ChatMessage.MessageType.VOICE) {
-                    historyMsg.setType(oldMsg.getType()); 
-                }
                 
+                // Fix for Images/Voice in history
+                if (oldMsg.getType() == ChatMessage.MessageType.IMAGE || oldMsg.getType() == ChatMessage.MessageType.VOICE) {
+                    historyMsg.setType(oldMsg.getType());
+                }
+
                 messagingTemplate.convertAndSend(uniqueUserChannel, historyMsg);
             }
+        } else {
+            System.out.println("❌ ERROR: User joined with NULL Group Name. History cannot be loaded.");
         }
     }
 
@@ -77,51 +74,38 @@ public class ChatController {
         chatMessage.setTime(getCurrentTime());
         chatMessage.setOnlineCount(activeSessions.size());
 
-        // A. DELETE HISTORY
-        if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
-            if(chatMessage.getGroupName() != null) {
-                List<ChatMessage> msgs = chatRepository.findByGroupName(chatMessage.getGroupName());
-                chatRepository.deleteAll(msgs);
-                System.out.println("🗑️ Deleted all messages for group: " + chatMessage.getGroupName());
-            }
-            messagingTemplate.convertAndSend("/topic/public", chatMessage);
-            return;
-        } 
-        
-        // B. SAVE MESSAGES (Text, Voice, Images)
+        // --- DEBUG LOGS FOR SAVING ---
         if (chatMessage.getType() == ChatMessage.MessageType.CHAT || 
             chatMessage.getType() == ChatMessage.MessageType.VOICE || 
             chatMessage.getType() == ChatMessage.MessageType.IMAGE) {
             
-            if(chatMessage.getGroupName() != null) {
+            if(chatMessage.getGroupName() != null && !chatMessage.getGroupName().isEmpty()) {
                 chatRepository.save(chatMessage);
-                System.out.println("💾 Saved to MongoDB: " + chatMessage.getType());
+                System.out.println("💾 SAVED TO DB: " + chatMessage.getText() + " | GROUP: " + chatMessage.getGroupName());
             } else {
-                System.out.println("❌ ERROR: Message has no Group Name. Not saving.");
+                System.out.println("❌ FAILED TO SAVE: Group Name is Missing!");
             }
             
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
-        // C. REACTIONS & READ STATUS (Update DB)
-        else if (chatMessage.getType() == ChatMessage.MessageType.REACTION) {
-            ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
-            if (existing != null) {
-                existing.getReactions().put(chatMessage.getFrom(), chatMessage.getText());
-                chatRepository.save(existing);
-                chatMessage.setReactions(existing.getReactions());
-                messagingTemplate.convertAndSend("/topic/public", chatMessage);
+        else if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
+            if(chatMessage.getGroupName() != null) {
+                List<ChatMessage> msgs = chatRepository.findByGroupName(chatMessage.getGroupName());
+                chatRepository.deleteAll(msgs);
+                System.out.println("🗑️ CLEARED HISTORY FOR: " + chatMessage.getGroupName());
             }
-        }
-        else if (chatMessage.getType() == ChatMessage.MessageType.READ) {
-             ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
-             if(existing != null) { 
-                 existing.setRead(true); 
-                 chatRepository.save(existing); 
-                 messagingTemplate.convertAndSend("/topic/public", chatMessage);
-             }
+            messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
         else {
-            // Typing, Calls, etc. (Pass through)
+            // Typing, Read, Reaction, etc.
+            if(chatMessage.getType() == ChatMessage.MessageType.REACTION || chatMessage.getType() == ChatMessage.MessageType.READ) {
+                 ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
+                 if(existing != null) {
+                     if(chatMessage.getType() == ChatMessage.MessageType.READ) existing.setRead(true);
+                     else existing.setReactions(chatMessage.getReactions());
+                     chatRepository.save(existing);
+                 }
+            }
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
     }
