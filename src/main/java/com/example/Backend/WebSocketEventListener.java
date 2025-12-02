@@ -18,24 +18,25 @@ public class WebSocketEventListener {
     private SimpMessageSendingOperations messagingTemplate;
     
     @Autowired
-    private ChatController chatController; // Inject Controller
+    private ChatController chatController; 
 
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         String username = (String) headerAccessor.getSessionAttributes().get("username");
         
-        // 1. Remove session from Controller
+        // 1. Remove the user session from the Set
         chatController.removeSession(headerAccessor.getSessionId());
 
         if(username != null) {
-            logger.info("User Disconnected: " + username);
+            logger.info("➖ User Disconnected: " + username);
 
+            // 2. Prepare LEAVE message
             ChatMessage chatMessage = new ChatMessage();
             chatMessage.setType(ChatMessage.MessageType.LEAVE);
             chatMessage.setFrom(username);
             
-            // 2. Get updated count from Controller
+            // 3. Get the NEW count and broadcast it
             chatMessage.setOnlineCount(chatController.getActiveUserCount());
 
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
