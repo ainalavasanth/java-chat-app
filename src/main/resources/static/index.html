@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VASApp Final</title>
+    <title>VASApp Pro</title>
     
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
@@ -23,7 +23,7 @@
         #app-container { display: none; flex: 1; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; width: 100%; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); position: relative; }
         .header { background: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
         .header-title { font-weight: bold; font-size: 1.1rem; }
-        .header-subtitle { font-size: 0.8rem; color: var(--primary); }
+        .header-subtitle { font-size: 0.8rem; color: var(--primary); margin-top: 2px; }
         .icon-btn-head { background: none; border: none; color: #8696a0; font-size: 1.2rem; cursor: pointer; margin-left: 15px; }
 
         #chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
@@ -33,11 +33,17 @@
         .me .bubble { background-color: var(--outgoing); border-top-right-radius: 0; }
         .other .bubble { background-color: var(--incoming); border-top-left-radius: 0; }
         .sender { font-size: 0.7rem; color: #d69a43; font-weight: bold; display: block; margin-bottom: 3px; }
-        .meta-info { position: absolute; bottom: 4px; right: 8px; display: flex; align-items: center; gap: 3px; font-size: 0.65rem; color: rgba(255,255,255,0.6); }
         
+        .meta-info { position: absolute; bottom: 4px; right: 8px; display: flex; align-items: center; gap: 3px; font-size: 0.65rem; color: rgba(255,255,255,0.6); }
+        .ticks.blue { color: #53bdeb; }
+
         .footer { background: var(--bg-panel); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
         .footer input { flex: 1; padding: 12px 15px; border-radius: 20px; border: none; background: #2a3942; color: white; font-size: 1rem; }
         .icon-btn { background: none; border: none; color: #8696a0; font-size: 1.4rem; cursor: pointer; padding: 5px; }
+        
+        /* Media */
+        audio { height: 30px; width: 220px; margin-top: 5px; filter: invert(1); }
+        .bubble img { max-width: 100%; border-radius: 5px; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -45,8 +51,9 @@
     <div id="login-screen">
         <div class="login-card">
             <h2 style="color:var(--primary);">VASApp Pro</h2>
-            <input type="text" id="group-in" placeholder="Group Name (e.g. Family)">
+            <input type="text" id="group-in" placeholder="Group Name (REQUIRED)">
             <input type="text" id="username-in" placeholder="Your Name">
+            <input type="password" id="code-in" placeholder="Encryption PIN">
             <button onclick="attemptLogin()">Start Chatting</button>
         </div>
     </div>
@@ -66,6 +73,8 @@
         <div id="chat-area"></div>
 
         <div class="footer">
+            <input type="file" id="file-input" style="display:none;" onchange="handleFileSelect(event)">
+            <button class="icon-btn" onclick="document.getElementById('file-input').click()"><i class="fas fa-paperclip"></i></button>
             <input type="text" id="message-input" placeholder="Type a message" onkeypress="handleEnter(event)">
             <button class="icon-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
         </div>
@@ -73,14 +82,29 @@
 
     <script>
         let stompClient = null;
-        let username, groupName;
+        let username, roomCode, groupName;
         const myId = "u_" + Date.now();
         const GROUP_PIN = "1234";
 
+        window.onload = function() {
+            if(localStorage.getItem("vas_user")) {
+                username = localStorage.getItem("vas_user");
+                roomCode = localStorage.getItem("vas_code");
+                groupName = localStorage.getItem("vas_group");
+                connect();
+            }
+        };
+
         function attemptLogin() {
             username = document.getElementById('username-in').value.trim();
+            roomCode = document.getElementById('code-in').value.trim() || "default";
             groupName = document.getElementById('group-in').value.trim();
-            if(!username || !groupName) return alert("Required!");
+            
+            if(!username || !groupName) return alert("Group Name and Username are REQUIRED!");
+            
+            localStorage.setItem("vas_user", username);
+            localStorage.setItem("vas_code", roomCode);
+            localStorage.setItem("vas_group", groupName);
             connect();
         }
 
@@ -94,21 +118,24 @@
                 document.getElementById('header-title').innerText = groupName;
                 
                 stompClient.subscribe('/topic/public', onMessageReceived);
-                stompClient.subscribe('/topic/history/' + myId, onHistoryReceived); // History Listener
+                stompClient.subscribe('/topic/history/' + myId, onHistoryReceived);
                 
                 // JOIN
                 sendPayload("JOINED", 'JOIN');
             });
         }
 
-        function sendPayload(content, type) {
+        function logout() { localStorage.clear(); location.reload(); }
+
+        function sendPayload(content, type, extra = {}) {
             const msg = {
                 messageId: 'msg_' + Date.now(),
                 from: username,
-                text: content,
+                text: (type === 'IMAGE' || type === 'VOICE' || type.length < 10) ? content : encrypt(content),
                 type: type,
                 senderId: myId,
-                groupName: groupName // CRITICAL FOR SAVING
+                groupName: groupName, // <--- CRITICAL FOR SAVING
+                ...extra
             };
             stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(msg));
         }
@@ -117,53 +144,55 @@
             const msg = JSON.parse(payload.body);
             if(msg.groupName && msg.groupName !== groupName) return;
 
-            // UPDATE ONLINE COUNT
             if(msg.onlineCount !== undefined) {
                 document.getElementById('status-text').innerText = msg.onlineCount + " Online";
             }
-
-            if(msg.type === 'CLEAR') {
-                document.getElementById('chat-area').innerHTML = '';
-                return;
-            }
-
-            if(msg.type === 'CHAT' || msg.type === 'JOIN') renderMessage(msg);
+            if(msg.type === 'CLEAR') { document.getElementById('chat-area').innerHTML = ''; return; }
+            
+            renderMessage(msg);
         }
 
-        function onHistoryReceived(p) { 
-            const msg = JSON.parse(p.body);
-            renderMessage(msg); // Show old messages
-        }
+        function onHistoryReceived(p) { renderMessage(JSON.parse(p.body)); }
 
         function renderMessage(msg) {
-            if(document.getElementById(msg.messageId)) return;
+            if(document.getElementById('msg-' + msg.messageId)) return;
+            
             const chatArea = document.getElementById('chat-area');
             const div = document.createElement('div');
             const isMe = msg.from === username;
             
-            if(msg.type === 'JOIN') { 
-                div.innerHTML = `<div style="text-align:center; margin:10px; color:#888; font-size:0.8rem;">${msg.from} joined</div>`;
+            let content = "";
+            let txt = decrypt(msg.text) || msg.text;
+
+            if(msg.type === 'IMAGE') content = `<img src="${msg.text}">`;
+            else if(msg.type === 'VOICE') content = `<audio controls src="${msg.text}"></audio>`;
+            else if (msg.type === 'JOIN') { 
+                div.innerHTML = `<div style="text-align:center; margin:10px;"><span style="background:#1c272d; padding:5px 10px; border-radius:10px; font-size:0.75rem; color:#8696a0;">${msg.from} joined</span></div>`;
                 chatArea.appendChild(div); return;
+            } else { 
+                content = `<span>${txt}</span>`;
             }
+
+            // USE SERVER TIME
+            const time = msg.time || new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
             div.className = `message-row ${isMe ? 'me' : 'other'}`;
             div.innerHTML = `
-                <div class="bubble" id="${msg.messageId}">
-                    <span class="sender">${msg.from}</span>
-                    <span>${msg.text}</span>
-                    <div class="meta-info">${msg.time || ""}</div>
+                <div class="bubble" id="msg-${msg.messageId}">
+                    <span class="sender">${msg.from}</span>${content}
+                    <div class="meta-info"><span>${time}</span>${isMe ? `<span class="ticks blue">✓✓</span>` : ''}</div>
                 </div>`;
             chatArea.appendChild(div);
             chatArea.scrollTop = chatArea.scrollHeight;
         }
 
-        function sendMessage() { 
-            const el = document.getElementById('message-input'); 
-            if(el.value){ sendPayload(el.value, 'CHAT'); el.value=""; } 
-        }
+        // UTILS
+        function encrypt(t) { return CryptoJS.AES.encrypt(t, roomCode).toString(); }
+        function decrypt(t) { try{return CryptoJS.AES.decrypt(t, roomCode).toString(CryptoJS.enc.Utf8);}catch(e){return"";} }
+        function sendMessage() { const el=document.getElementById('message-input'); if(el.value){sendPayload(el.value,'CHAT'); el.value="";} }
         function handleEnter(e) { if(e.key==='Enter')sendMessage(); }
-        function logout() { location.reload(); }
-        function clearChat() { if(prompt("PIN?") === GROUP_PIN) sendPayload(GROUP_PIN, "CLEAR"); }
+        function handleFileSelect(e) { const r=new FileReader(); r.onload=ev=>sendPayload(ev.target.result,'IMAGE'); r.readAsDataURL(e.target.files[0]); }
+        function clearChat() { if(prompt("PIN?") === GROUP_PIN) sendPayload("1234", "CLEAR"); }
 
     </script>
 </body>

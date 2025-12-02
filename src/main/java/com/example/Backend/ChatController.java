@@ -17,52 +17,47 @@ public class ChatController {
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatRepository chatRepository;
 
-    // RAM for counting users (Not messages)
-    private static final Set<String> activeSessions = ConcurrentHashMap.newKeySet();
+    // TRACKING ONLINE USERS
+    public static final Set<String> activeSessions = ConcurrentHashMap.newKeySet();
 
     public ChatController(SimpMessagingTemplate messagingTemplate, ChatRepository chatRepository) {
         this.messagingTemplate = messagingTemplate;
         this.chatRepository = chatRepository;
     }
 
-    // Helper to get count
-    public int getActiveUserCount() { return activeSessions.size(); }
-    // Helper to remove session (Called by EventListener)
-    public void removeSession(String sessionId) { activeSessions.remove(sessionId); }
-
     @MessageMapping("/chat.addUser")
     public void addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        // 1. Register Session
-        headerAccessor.getSessionAttributes().put("username", chatMessage.getFrom());
+        // 1. Add User to Session List
         activeSessions.add(headerAccessor.getSessionId());
+        headerAccessor.getSessionAttributes().put("username", chatMessage.getFrom());
 
-        System.out.println("➕ USER JOINED: " + chatMessage.getFrom() + " | TOTAL ONLINE: " + activeSessions.size());
+        System.out.println("➕ JOIN: " + chatMessage.getFrom() + " | Group: " + chatMessage.getGroupName());
 
-        // 2. Broadcast Join to Public
+        // 2. Broadcast Join
         chatMessage.setTime(getCurrentTime());
         chatMessage.setType(ChatMessage.MessageType.JOIN);
-        chatMessage.setOnlineCount(activeSessions.size()); // <--- SEND COUNT
+        chatMessage.setOnlineCount(activeSessions.size()); // Send accurate count
         messagingTemplate.convertAndSend("/topic/public", chatMessage);
 
-        // 3. Load History from MongoDB
+        // 3. LOAD HISTORY (The Fix)
         if (chatMessage.getGroupName() != null) {
             List<ChatMessage> history = chatRepository.findByGroupName(chatMessage.getGroupName());
-            System.out.println("📚 LOADING HISTORY: Found " + history.size() + " messages for group " + chatMessage.getGroupName());
+            System.out.println("📚 DB CHECK: Found " + history.size() + " messages for " + chatMessage.getGroupName());
 
             String uniqueUserChannel = "/topic/history/" + chatMessage.getSenderId();
             
             for (ChatMessage oldMsg : history) {
-                // Send as HISTORY type so it renders quietly
+                // Send as HISTORY type (so it doesn't play sound)
                 ChatMessage historyMsg = new ChatMessage();
                 historyMsg.setMessageId(oldMsg.getMessageId());
                 historyMsg.setFrom(oldMsg.getFrom());
                 historyMsg.setText(oldMsg.getText());
-                historyMsg.setTime(oldMsg.getTime());
+                historyMsg.setTime(oldMsg.getTime()); // Use stored time
                 historyMsg.setType(ChatMessage.MessageType.HISTORY); 
                 historyMsg.setRead(oldMsg.isRead());
                 historyMsg.setReactions(oldMsg.getReactions());
                 
-                // Keep media types correct
+                // Preserve media types
                 if (oldMsg.getType() == ChatMessage.MessageType.IMAGE || oldMsg.getType() == ChatMessage.MessageType.VOICE) {
                     historyMsg.setType(oldMsg.getType());
                 }
@@ -74,33 +69,45 @@ public class ChatController {
 
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessage chatMessage) {
+        // 1. Fix Time
         chatMessage.setTime(getCurrentTime());
-        chatMessage.setOnlineCount(activeSessions.size()); // Always send count
+        // 2. Fix Count
+        chatMessage.setOnlineCount(activeSessions.size());
 
-        // Handle Clear
+        // A. DELETE HISTORY
         if (chatMessage.getType() == ChatMessage.MessageType.CLEAR) {
             if(chatMessage.getGroupName() != null) {
                 List<ChatMessage> msgs = chatRepository.findByGroupName(chatMessage.getGroupName());
                 chatRepository.deleteAll(msgs);
-                System.out.println("🗑️ CLEARED DB for group: " + chatMessage.getGroupName());
+                System.out.println("🗑️ DB CLEARED for " + chatMessage.getGroupName());
             }
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
             return;
         } 
         
-        // Handle Chat/Media Saving
+        // B. SAVE MESSAGES
         if (chatMessage.getType() == ChatMessage.MessageType.CHAT || 
             chatMessage.getType() == ChatMessage.MessageType.VOICE || 
             chatMessage.getType() == ChatMessage.MessageType.IMAGE) {
             
             if(chatMessage.getGroupName() != null) {
                 chatRepository.save(chatMessage);
-                System.out.println("💾 SAVED: " + chatMessage.getText());
+                System.out.println("💾 SAVED TO DB: " + chatMessage.getText());
+            } else {
+                System.out.println("❌ ERROR: Group Name is NULL. Message lost.");
             }
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
         else {
-            // Typing, Calls, Reactions (Pass through)
+            // Typing, Read, Reaction (Don't save typing, do save others)
+            if(chatMessage.getType() == ChatMessage.MessageType.READ || chatMessage.getType() == ChatMessage.MessageType.REACTION) {
+                 ChatMessage existing = chatRepository.findByMessageId(chatMessage.getMessageId());
+                 if(existing != null) {
+                     if(chatMessage.getType() == ChatMessage.MessageType.READ) existing.setRead(true);
+                     else existing.setReactions(chatMessage.getReactions());
+                     chatRepository.save(existing);
+                 }
+            }
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
     }
